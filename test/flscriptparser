@@ -1,0 +1,3 @@
+#!/bin/sh
+python ../flscriptparse.py $1 $2 $3
+

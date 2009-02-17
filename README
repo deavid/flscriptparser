@@ -1,0 +1,10 @@
+Example of a Javascript-like parser. 
+This parser is intended to enhnace good practices when coding; so it's only 
+cares about structure. It's not intended to execute any data. 
+
+It was developed to aid the developers when coding something for AbanQ/FacturaLUX.
+
+NOTE: Don't try to execute the parser from this folder, it will get filled 
+  with trash files. Instead, enter to the "test" folder and run it from there.
+  
+
