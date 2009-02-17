@@ -34,9 +34,10 @@ where filename.qs is the filename for the file that you are trying to parse.
 
 KNOWN BUGS:
 
-There are several problems if you try to pass a file with path as an argument.
 It doesn't handle (yet) several structures, like array definitions [a,b,c] or 
 extensive use of dots and functions.
+
 * Fixed * It hangs up unexpectedly when trying to parse some files with errors. 
 (You can try to hit Ctrl-C)
+* Fixed * There are several problems if you try to pass a file with path as an argument.
 

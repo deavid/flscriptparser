@@ -14,22 +14,25 @@ OKFILES=""
 
 for file in $PARSE_FILES
 do
-  echo -n "Parsing $file . . . "
-  python "$APPDIR/flscriptparse.py" $file 2>/dev/null >.parse-$file.log
-  ERRORCOUNT=`grep "#ERROR#" .parse-$file.log | wc -l`
+  NAME=`basename $file`
+  DIR=`dirname $file`
+  echo -n "$DIR Parsing $NAME . . . "
+  LOGFILE="$DIR/.parse-$NAME.log"
+  python "$APPDIR/flscriptparse.py" $file 2>/dev/null >$LOGFILE
+  ERRORCOUNT=`grep "#ERROR#" $LOGFILE | wc -l`
   TOTALFILES+="$file
 "
   if [ "$ERRORCOUNT" = "0" ]; then
     echo "done."
     OKFILES+="$file
 "
-    unlink .parse-$file.log
+    unlink $LOGFILE
   elif [ "$ERRORCOUNT" = "1" ]; then
     echo -n "$ERRORCOUNT Error found."
-    grep "#ERROR#" -B10 -m1 .parse-$file.log 
+    grep "#ERROR#" -B10 -m1 $LOGFILE
   else
     echo -n "$ERRORCOUNT Errors found."
-    grep "#ERROR#" -B10 -m1 .parse-$file.log 
+    grep "#ERROR#" -B10 -m1 $LOGFILE
   fi
 done
 OKFILES="`echo -n "$OKFILES" | wc -l`"
