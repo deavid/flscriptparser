@@ -9,18 +9,30 @@ readlink "$0" >/dev/null && THISFILE=`readlink "$0"`
 THISDIR=`dirname "$THISFILE"`
 APPDIR=`dirname "$THISDIR"`
 echo "Starting parsers for $PARSE_FILES"
+TOTALFILES=""
+OKFILES=""
+
 for file in $PARSE_FILES
 do
   echo -n "Parsing $file . . . "
   python "$APPDIR/flscriptparse.py" $file 2>/dev/null >.parse-$file.log
   ERRORCOUNT=`grep "#ERROR#" .parse-$file.log | wc -l`
+  TOTALFILES+="$file
+"
   if [ "$ERRORCOUNT" = "0" ]; then
     echo "done."
+    OKFILES+="$file
+"
     unlink .parse-$file.log
   elif [ "$ERRORCOUNT" = "1" ]; then
-    echo "$ERRORCOUNT Error found."
+    echo -n "$ERRORCOUNT Error found."
+    grep "#ERROR#" -B10 -m1 .parse-$file.log 
   else
-    echo "$ERRORCOUNT Errors found."
+    echo -n "$ERRORCOUNT Errors found."
+    grep "#ERROR#" -B10 -m1 .parse-$file.log 
   fi
 done
+OKFILES="`echo -n "$OKFILES" | wc -l`"
+TOTALFILES="`echo -n "$TOTALFILES" | wc -l`"
 
+echo "$OKFILES of $TOTALFILES files parsed correctly"

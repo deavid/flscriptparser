@@ -177,6 +177,7 @@ def p_arglist(p):
 def p_funcdeclaration(p):
     '''
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
+    funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE RBRACE
     '''
     p[0] = "function %s (%s)" % (p[2],p[4])
     
@@ -438,10 +439,11 @@ last_error_token = None
 def p_error(t):
     global error_count
     global last_error_token
-    if t != last_error_token:
+        
+    yacc.errok()
+    if repr(t) != repr(last_error_token):
         error_count += 1
         if error_count>100 or t is None: 
-            yacc.errok()
             return
         try:
             print_context(t)
@@ -458,7 +460,8 @@ def p_error(t):
     #if t is not None:
     #    yacc.errok()
     #else:
-    yacc.errok()
+    if t is None:
+        return
     t = yacc.token() 
     yacc.restart()
     last_error_token = t
@@ -488,6 +491,7 @@ def print_context(token):
 
     print input_data[last_cr:next_cr].replace("\t"," ")
     print (" " * (column-1)) + "^", column, "#ERROR#" , token
+    print
     
     
 
