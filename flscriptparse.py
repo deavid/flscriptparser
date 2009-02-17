@@ -433,32 +433,35 @@ def p_empty(t):
 
 
 error_count = 0
+last_error_token = None
 
 def p_error(t):
     global error_count
-    error_count += 1
-    if error_count>10: 
-        yacc.errok()
-        return
-    try:
-        print_context(t)
-    except:
-        pass
-
-    while 1:
-        if t is None:
-            print "*** Se encontro EOF intentando resolver el error *** "
-            break
-        if t.type == 'RBRACE': break
-        #if t.type == 'SEMI': break
-        t = yacc.token()             # Get the next token
+    global last_error_token
+    if t != last_error_token:
+        error_count += 1
+        if error_count>100 or t is None: 
+            yacc.errok()
+            return
+        try:
+            print_context(t)
+        except:
+            pass
+    #while 1:
+    #    if t is None:
+    #        print "*** Se encontro EOF intentando resolver el error *** "
+    #        break
+    #    if t.type == 'RBRACE': break
+    #    if t.type == 'SEMI': break
+    #    t = yacc.token()             # Get the next token
         
     #if t is not None:
     #    yacc.errok()
     #else:
-    
+    yacc.errok()
     t = yacc.token() 
     yacc.restart()
+    last_error_token = t
     return t
         
     

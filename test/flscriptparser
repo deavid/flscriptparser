@@ -16,6 +16,9 @@ do
   ERRORCOUNT=`grep "#ERROR#" .parse-$file.log | wc -l`
   if [ "$ERRORCOUNT" = "0" ]; then
     echo "done."
+    unlink .parse-$file.log
+  elif [ "$ERRORCOUNT" = "1" ]; then
+    echo "$ERRORCOUNT Error found."
   else
     echo "$ERRORCOUNT Errors found."
   fi

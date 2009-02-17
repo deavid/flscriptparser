@@ -26,16 +26,16 @@ USE:
 flscriptparser [file1.qs] [file2.qs] [file3.qs] [..]
 
 Run flscriptparser without arguments to parse all files named *.qs in the 
-current folder. If there are arguments, they are treated like it were files to
-parse.
+current folder. If there are arguments, these are treated as files to parse.
 
 It generates, for each input file, one output named .parse-filename.qs.log
-where filename.qs is the filename for the file that you were trying to parse.
+where filename.qs is the filename for the file that you are trying to parse.
 
 
 KNOWN BUGS:
 
 There are several problems if you try to pass a file with path as an argument.
-It hangs up unexpectedly when trying to parse some files with errors. 
+
+* Fixed * It hangs up unexpectedly when trying to parse some files with errors. 
 (You can try to hit Ctrl-C)
 
