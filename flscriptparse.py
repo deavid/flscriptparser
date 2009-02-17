@@ -437,12 +437,11 @@ error_count = 0
 def p_error(t):
     global error_count
     error_count += 1
-    if error_count>3: 
+    if error_count>10: 
         yacc.errok()
         return
-    print_context(t)
     try:
-        print "ERROR FATAL! -- Debug info: " , t
+        print_context(t)
     except:
         pass
 
@@ -457,16 +456,17 @@ def p_error(t):
     #if t is not None:
     #    yacc.errok()
     #else:
+    
     t = yacc.token() 
     yacc.restart()
     return t
         
     
-
-#import profile
 # Build the grammar
 
-parser = yacc.yacc(method='LALR')
+
+parser = yacc.yacc(method='LALR',debug=False, 
+      optimize = 0, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
 
 #profile.run("yacc.yacc(method='LALR')")
 
@@ -484,7 +484,7 @@ def print_context(token):
         last_cr = input_data.rfind('\n',0,last_cr-1)
 
     print input_data[last_cr:next_cr].replace("\t"," ")
-    print (" " * (column-1)) + "^", column
+    print (" " * (column-1)) + "^", column, "#ERROR#" , token
     
     
 

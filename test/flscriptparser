@@ -1,3 +1,23 @@
 #!/bin/sh
-python ../flscriptparse.py $1 $2 $3
+PARSE_FILES="$*"
+if [ "$PARSE_FILES" = "" ]; then
+  PARSE_FILES=*.qs
+fi
+
+THISFILE="$0"
+readlink "$0" >/dev/null && THISFILE=`readlink "$0"`
+THISDIR=`dirname "$THISFILE"`
+APPDIR=`dirname "$THISDIR"`
+echo "Starting parsers for $PARSE_FILES"
+for file in $PARSE_FILES
+do
+  echo -n "Parsing $file . . . "
+  python "$APPDIR/flscriptparse.py" $file 2>/dev/null >.parse-$file.log
+  ERRORCOUNT=`grep "#ERROR#" .parse-$file.log | wc -l`
+  if [ "$ERRORCOUNT" = "0" ]; then
+    echo "done."
+  else
+    echo "$ERRORCOUNT Errors found."
+  fi
+done
 
