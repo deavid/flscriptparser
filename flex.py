@@ -15,12 +15,12 @@ reserved = (
     'ELSE', 'ENUM', 'EXTERN', 'FLOAT', 'FOR', 'GOTO', 'IF', 'INT', 'LONG', 'REGISTER',
     'RETURN', 'SHORT', 'SIGNED', 'SIZEOF', 'STATIC', 'STRUCT', 'SWITCH', 'TYPEDEF',
     'UNION', 'UNSIGNED', 'VOID', 'VOLATILE', 'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
-    'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW',
+    'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE'
     )
 
 tokens = reserved + (
     # Literals (identifier, integer constant, float constant, string constant, char const)
-    'ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'LCONST', 'AT',
+    'ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'AT',
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
@@ -134,7 +134,7 @@ def t_ID(t):
 
 
 # Integer literal
-t_ICONST = r'[-]{0,1}\d+([uU]|[lL]|[uU][lL]|[lL][uU])?'
+t_ICONST = r'\d+([uU]|[lL]|[uU][lL]|[lL][uU])?'
 
 # Floating literal
 t_FCONST = r'((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
@@ -144,9 +144,6 @@ t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
 
 # Character constant 'c' or L'c'
 t_CCONST = r'(L)?\'([^\\\n]|(\\.))*?\''
-
-# List constant
-t_LCONST = r'\[\]'
 
 # Comments
 def t_comment(t):

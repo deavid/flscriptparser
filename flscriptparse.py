@@ -29,6 +29,41 @@ precedence = (
 
 )
 
+def p_id_or_constant(p):
+    '''
+    id_or_constant  : ID
+                    | constant
+    '''
+    return p[1]
+    
+def p_case_block(p):
+    '''
+    case_block  :  CASE id_or_constant COLON BREAK SEMI
+    case_block  :  CASE id_or_constant COLON LBRACE BREAK SEMI RBRACE
+    case_block  :  CASE id_or_constant COLON statement_list BREAK SEMI
+    case_block  :  CASE id_or_constant COLON LBRACE statement_list BREAK SEMI RBRACE
+    case_block  :  CASE id_or_constant COLON case_block
+    '''
+
+def p_case_cblock_list(p):
+    '''
+    case_cblock_list  :  case_block  
+    case_cblock_list  :  case_block_list case_block  
+    '''
+def p_case_default(p):
+    '''
+    case_default    :  DEFAULT COLON LBRACE statement_list RBRACE
+    case_default    :  DEFAULT COLON statement_list
+    case_default    :  empty
+    '''
+
+def p_case_block_list(p):
+    '''
+    case_block_list  :  empty
+    case_block_list  :  case_cblock_list case_default
+    '''
+    
+
 def p_source(p):
     '''
     source  : docstring
@@ -98,12 +133,6 @@ def p_statement(p):
     '''
     p[0] = p[1]
 
-def p_optstatement_list(p):
-    '''
-    optstatement_list   : statement_list
-                        | empty
-    
-    '''
 
 def p_statement_list(p):
     '''
@@ -142,8 +171,8 @@ def p_optvartype(p):
 
 def p_vardeclaration(v):
     '''
-    vardeclaration  :  VAR vardecl SEMI
-                    |  CONST vardecl SEMI
+    vardeclaration  :  VAR vardecl_list SEMI
+                    |  CONST vardecl_list SEMI
                     |  error
     '''
     v[0] = v[1]
@@ -162,16 +191,22 @@ def p_vardeclaration_2(v):
     
     
 
-def p_arglist(p):
+def p_vardecl_list(p):
     '''
-    arglist : vardecl
-            | arglist COMMA vardecl
-            | 
+    vardecl_list    : vardecl
+                    | arglist COMMA vardecl
     '''
     if len(p.slice) == 1: p[0] = []
     if len(p.slice) == 2: p[0] = [p[1]]
     if len(p.slice) == 4: p[0] = p[1] + [p[3]]
         
+def p_arglist(p):
+    '''
+    arglist : vardecl_list
+            |
+    '''
+    if len(p.slice) == 1: p[0] = []
+    else:  p[0] = p[1]
     
     
 def p_funcdeclaration(p):
@@ -207,6 +242,12 @@ def p_funccall(p):
     '''
     p[0]=[p[1],p[3]]
 
+def p_expression_list(p):
+    '''
+    expression_list    : expression
+                    | expression_list COMMA expression
+    '''
+    
 
 def p_exprval(p):
     '''
@@ -226,6 +267,7 @@ def p_mathoperator(p):
                     | MINUS
                     | TIMES
                     | DIVIDE
+                    | MOD
     '''
 
 def p_expression(p):
@@ -248,17 +290,21 @@ def p_variable(p):
     variable    : ID 
                 | funccall PERIOD ID 
                 | variable PERIOD ID
-                | variable LBRACKET constant RBRACKET
-                | variable LBRACKET ID RBRACKET
+                | variable LBRACKET id_or_constant RBRACKET
+                | variable LBRACKET inlinestoreinstruction RBRACKET
+    '''
+def p_inlinestoreinstruction(p):
+    '''
+    inlinestoreinstruction  : variable PLUSPLUS
+                            | PLUSPLUS variable 
+                            | variable MINUSMINUS
+                            | MINUSMINUS variable 
     '''
     
 def p_storeinstruction(p):
     '''
         storeinstruction    : variable EQUALS expression 
-                            | variable PLUSPLUS
-                            | PLUSPLUS variable 
-                            | variable MINUSMINUS
-                            | MINUSMINUS variable 
+                            | inlinestoreinstruction
                             | variable PLUSEQUAL expression
                             | variable MINUSEQUAL expression
             
@@ -273,6 +319,7 @@ def p_instruction(p):
                 | THROW expression SEMI
                 | BREAK SEMI
                 | CONTINUE SEMI
+                | DELETE ID SEMI
     '''
     if p.slice[1].type=="funccall":
         p[0]="Ejecucion de '%s'" % (p[1])
@@ -311,14 +358,21 @@ def p_docstring(p):
     
     p[0]=(p[3],var)    
 
-
+def p_list_constant(p):
+    '''
+    list_constant   : LBRACKET RBRACKET
+                    | LBRACKET expression_list RBRACKET
+    '''
+    
 # constant:
 def p_constant(p): 
     '''constant : ICONST
                 | FCONST
                 | CCONST
                 | SCONST
-                | LCONST
+                | list_constant
+                | MINUS ICONST
+                | MINUS FCONST
                 | error
               
               '''
@@ -369,6 +423,8 @@ def p_whilestatement(p):
     '''
     whilestatement  : WHILE LPAREN condition RPAREN statement_block 
                     | WHILE LPAREN expression RPAREN statement_block 
+    whilestatement  : DO statement_block WHILE LPAREN condition RPAREN SEMI
+                    | DO statement_block WHILE LPAREN expression RPAREN SEMI
                     | error
                     
     '''
@@ -388,27 +444,6 @@ def p_forstatement(p):
     '''
 
 
-def p_case_block(p):
-    '''
-    case_block  :  CASE constant COLON statement_list BREAK SEMI
-    case_block  :  CASE constant COLON LBRACE statement_list BREAK SEMI RBRACE
-    case_block  :  CASE ID COLON LBRACE statement_list BREAK SEMI RBRACE
-    case_block  :  CASE ID COLON statement_list BREAK SEMI
-    case_block  :  CASE ID COLON LBRACE BREAK SEMI RBRACE
-    '''
-
-def p_case_block_list(p):
-    '''
-    case_block_list  :  case_block  
-    case_block_list  :  case_block_list case_block  
-    case_block_list  :  CASE constant COLON case_block_list  
-    case_block_list  :  CASE ID COLON case_block_list  
-    case_block_list  :  case_block_list CASE constant COLON case_block_list  
-    case_block_list  :  case_block_list CASE ID COLON case_block_list  
-    case_block_list  :  empty
-    case_block_list  :  case_block_list DEFAULT COLON LBRACE statement_list RBRACE
-    case_block_list  :  case_block_list DEFAULT COLON statement_list
-    '''
 
 def p_switch(p):
     '''
