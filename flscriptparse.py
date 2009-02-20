@@ -60,6 +60,7 @@ def p_case_default(p):
 def p_case_block_list(p):
     '''
     case_block_list  :  empty
+    case_block_list  :  case_default
     case_block_list  :  case_cblock_list case_default
     '''
     
@@ -252,8 +253,6 @@ def p_expression_list(p):
 def p_exprval(p):
     '''
     exprval : constant
-            | NEW funccall
-            | NEW ID
             | funccall
             | variable
             | variable PERIOD funccall
@@ -273,6 +272,8 @@ def p_mathoperator(p):
 def p_expression(p):
     '''
     expression  : exprval
+                | NEW funccall
+                | NEW ID
                 | expression mathoperator exprval
                 | exprval mathoperator expression
                 | LPAREN expression RPAREN
@@ -291,6 +292,7 @@ def p_variable(p):
                 | funccall PERIOD ID 
                 | variable PERIOD ID
                 | variable LBRACKET id_or_constant RBRACKET
+                | variable LBRACKET exprval RBRACKET
                 | variable LBRACKET inlinestoreinstruction RBRACKET
     '''
 def p_inlinestoreinstruction(p):
