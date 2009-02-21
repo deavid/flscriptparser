@@ -20,7 +20,7 @@ reserved = (
 
 tokens = reserved + (
     # Literals (identifier, integer constant, float constant, string constant, char const)
-    'ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'AT',
+    'FID','ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'AT',
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
@@ -108,6 +108,7 @@ t_ARROW            = r'->'
 # ?
 t_CONDOP           = r'\?'
 
+
 # Delimeters
 t_LPAREN           = r'\('
 t_RPAREN           = r'\)'
@@ -127,10 +128,13 @@ reserved_map = { }
 for r in reserved:
     reserved_map[r.lower()] = r
 
+
+
 def t_ID(t):
     r'[A-Za-z_]+([\.]{0,1}[\w_]*)+'
     t.type = reserved_map.get(t.value,"ID")
     return t
+
 
 
 # Integer literal
