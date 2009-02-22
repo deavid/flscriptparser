@@ -17,15 +17,13 @@ reserv+=list(flex.reserved)
 
 
 precedence = (
-    set(reserv),
-    ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL',
-    'LSHIFTEQUAL','RSHIFTEQUAL', 'ANDEQUAL', 'XOREQUAL', 'OREQUAL'),
+    ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
     ('left','LOR', 'LAND'),
     ('right', 'LNOT'),
     ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE', 'MOD'),
-    ('left', 'OR', 'AND', 'NOT', 'XOR', 'LSHIFT', 'RSHIFT'),
+    ('left', 'OR', 'AND', 'XOR', 'LSHIFT', 'RSHIFT'),
 
 )
 
@@ -34,6 +32,7 @@ def p_case_cblock_list(p):
     case_cblock_list  :  case_block  
     case_cblock_list  :  case_block_list case_block  
     '''
+    p[0] = p[1:]
 
 def p_case_block(p):
     '''
@@ -43,13 +42,14 @@ def p_case_block(p):
     case_block  :  CASE id_or_constant COLON LBRACE statement_list BREAK SEMI RBRACE
     case_block  :  CASE id_or_constant COLON case_block
     '''
+    p[0] = p[1:]
 
 def p_id_or_constant(p):
     '''
     id_or_constant  : ID
                     | constant
     '''
-    return p[1]
+    p[0] = p[1:]
     
     
 def p_case_default(p):
@@ -58,6 +58,7 @@ def p_case_default(p):
     case_default    :  DEFAULT COLON statement_list
     case_default    :  empty
     '''
+    p[0] = p[1:]
 
 def p_case_block_list(p):
     '''
@@ -65,6 +66,7 @@ def p_case_block_list(p):
     case_block_list  :  case_default
     case_block_list  :  case_cblock_list case_default
     '''
+    p[0] = p[1:]
     
 
 def p_source(p):
@@ -91,33 +93,27 @@ def p_classdeclarationsource1(p):
     classdeclarationsource  : vardeclaration
                             | funcdeclaration
     '''
-    p[0]=[p[1]]
+    if p[1]:
+        p[0]=[p[1]]
 
 def p_classdeclarationsource2(p):
     '''
     classdeclarationsource  : classdeclarationsource classdeclarationsource 
     '''
-    p[0]=p[1]+p[2]
+    try:
+        p[0]=p[1]+p[2]
+    except:
+        p[0]=str(p[1])+str(p[2])
 
 def p_basicsource(p):
     '''
-    basicsource     : empty
-                    | statement_list
+    basicsource     : statement_list
+                    | empty
     '''
     p[0]=p[1]
+    
 
-def p_vardeclaration_list1(p):
-    '''
-    vardeclaration_list : vardeclaration
-    '''
-    p[0] = [p[1]]
-    
-def p_vardeclaration_list2(p):
-    '''
-    vardeclaration_list : vardeclaration_list vardeclaration
-    '''
-    p[0] = p[1] + [p[2]]
-    
+   
 
 def p_statement(p):
     '''
@@ -133,22 +129,24 @@ def p_statement(p):
     p[0] = p[1]
 
 
-def p_statement_list(p):
+def p_statement_list1(p):
     '''
     statement_list      : statement_list statement
+    '''
+    p[0]=p[1]+[p[2]]
+
+def p_statement_list2(p):
+    '''
     statement_list      : statement 
+    '''
+    p[0]=[p[1]]
+
+def p_statement_list3(p):
+    '''
     statement_list      : LBRACE statement_list RBRACE
     '''
+    p[0]=[p[2]]
     
-    '''
-    print " ** ",
-    for t in p.slice[1:]:
-        print "%s" % (t.value),
-        
-    print " ** "'''
-        
-    #p[0] = [p[1]]
-    #p[0] = p[1] + [p[2]]
     
 
 
@@ -172,9 +170,8 @@ def p_vardeclaration(v):
     '''
     vardeclaration  :  VAR vardecl_list SEMI
                     |  CONST vardecl_list SEMI
-                    |  error
     '''
-    v[0] = v[1]
+    v[0] = (v[1],v[2])
 
 def p_vardeclaration_1(v):
     '''
@@ -212,12 +209,21 @@ def p_funcdeclaration(p):
     '''
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     '''
-    p[0] = "function %s (%s)" % (p[2],p[4])
+    p[0] = "function %s (%s) : %s " % (p[2],p[4],p[6])
+    if p[8]:
+        p[0] += "{\n"
+        for ln in p[8]:
+            p[0] += str(ln) + "\n"
+        p[0] += "\n}"
+        
+    else: p[0] += "{}"
+    
     
 def p_callarg(p):
     '''
     callarg     : expression
     '''
+    p[0] = p[1:]
     
 def p_callargs(p):
     '''
@@ -236,8 +242,11 @@ def p_funccall(p):
                 | funccall PERIOD funccall
                 | LPAREN funccall RPAREN
     '''
-    # p[0]=[p[1],p[3]]
-
+    p[0] = []
+    i=0
+    for sl in p.slice:
+        if i: p[0].append(sl.value)
+        i+=1
     
 
 def p_exprval(p):
@@ -256,7 +265,13 @@ def p_mathoperator(p):
                     | TIMES
                     | DIVIDE
                     | MOD
+                    | XOR
+                    | OR
+                    | LSHIFT
+                    | RSHIFT
+                    | AND
     '''
+    p[0] = p[1:]
 
 def p_expression(p):
     '''
@@ -274,8 +289,7 @@ def p_expression(p):
                 | expression boolcmp_symbol expression
                 | expression cmp_symbol expression
     '''
-    if len(p.slice) < 4: p[0] = [p[1]]
-    else:  p[0] = [p[1],p[2],p[3]]
+    p[0] = p[1:]
     
     
 def p_variable(p):
@@ -288,6 +302,8 @@ def p_variable(p):
                 | variable LBRACKET inlinestoreinstruction RBRACKET
                 | LPAREN variable RPAREN 
     '''
+    p[0] = p[1:]
+
 def p_inlinestoreinstruction(p):
     '''
     inlinestoreinstruction  : variable PLUSPLUS
@@ -295,6 +311,7 @@ def p_inlinestoreinstruction(p):
                             | variable MINUSMINUS
                             | MINUSMINUS variable 
     '''
+    p[0] = p[1:]
     
 def p_storeinstruction(p):
     '''
@@ -302,8 +319,12 @@ def p_storeinstruction(p):
                             | inlinestoreinstruction
                             | variable PLUSEQUAL expression
                             | variable MINUSEQUAL expression
+                            | variable MODEQUAL expression
+                            | variable DIVEQUAL expression
+                            | variable TIMESEQUAL expression
             
     '''
+    p[0] = p[1:]
 
 def p_instruction(p):
     '''
@@ -317,12 +338,15 @@ def p_instruction(p):
                 | DELETE ID SEMI
                 | SEMI
     '''
+    p[0]=p[1:]
+    """
     if p.slice[1].type=="funccall":
         p[0]="Ejecucion de '%s'" % (p[1])
     elif p.slice[1].type=="RETURN":
         p[0]="Se Retorna el valor '%s'" % (p[2])
     elif p.slice[1].type=="ID":
         p[0]="Variable '%s' asignada al valor '%s'" % (p[1], p[3])
+        """
 
 def p_optextends(p):
     '''
@@ -339,7 +363,15 @@ def p_classdeclaration(p):
     classdeclaration   : CLASS ID optextends LBRACE classdeclarationsource RBRACE
     '''
     p[0] = "class " + p[2]
-    if p[3]: p[0] = "class %s (%s)" % (p[2], p[3])
+    if p[3]: p[0] = "class %s (extends %s)" % (p[2], p[3])
+
+    if len(p[5]): 
+        p[0] += "{\n"
+        for ln in p[5]:
+            p[0] += str(ln) + "\n"
+        p[0] += "\n}"
+        
+    else: p[0] += "{}"
     
 
 
@@ -358,6 +390,7 @@ def p_list_constant(p):
     '''
     list_constant   : LBRACKET callargs RBRACKET
     '''
+    p[0] = p[1:]
     
 # constant:
 def p_constant(p): 
@@ -378,12 +411,15 @@ def p_statement_block(p):
     statement_block : statement
                     | LBRACE statement_list RBRACE
     '''
+    p[0] = p[1:]
 
 def p_optelse(p):
     '''
     optelse : ELSE statement_block
             | empty
     '''
+    p[0] = p[1:]
+
 def p_cmp_symbol(p):
     '''
     cmp_symbol  : LT
@@ -393,23 +429,27 @@ def p_cmp_symbol(p):
                 | EQ
                 | NE
     '''
+    p[0] = p[1:]
 
 def p_boolcmp_symbol(p):
     '''
     boolcmp_symbol  : LOR
                     | LAND
     '''
+    p[0] = p[1:]
 
 def p_condition(p):
     '''
     condition   : expression 
     '''
+    p[0] = p[1:]
 
 def p_ifstatement(p):
     '''
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
                 | error
     '''
+    p[0] = p[1:]
 
 def p_whilestatement(p):
     '''
@@ -418,12 +458,14 @@ def p_whilestatement(p):
                     | error
                     
     '''
+    p[0] = p[1:]
 
 def p_withstatement(p):
     '''
     withstatement   : WITH LPAREN ID RPAREN statement_block 
                     | error
     '''
+    p[0] = p[1:]
 
 def p_forstatement(p):
     '''
@@ -432,6 +474,7 @@ def p_forstatement(p):
                     | FOR LPAREN SEMI condition SEMI storeinstruction RPAREN statement_block 
                     | error
     '''
+    p[0] = p[1:]
 
 
 
@@ -439,23 +482,26 @@ def p_switch(p):
     '''
     switch  : SWITCH LPAREN expression RPAREN LBRACE case_block_list RBRACE
     '''
+    p[0] = p[1:]
     
 def p_optid(p):
     '''
     optid   : ID
             | empty
     '''
+    p[0] = p[1:]
     
 def p_trycatch(p):
     '''
     trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE statement_list RBRACE
     trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE RBRACE
     '''
+    p[0] = p[1:]
 
 
 def p_empty(t):
     'empty : '
-    pass
+    t[0] = []
 
 
 error_count = 0
@@ -465,15 +511,18 @@ def p_error(t):
     global error_count
     global last_error_token
         
-    yacc.errok()
+
     if repr(t) != repr(last_error_token):
         error_count += 1
-        if error_count>100 or t is None: 
+        if error_count>100 or t is None:         
+            yacc.errok()
             return
         try:
             print_context(t)
         except:
             pass
+        import sys
+        sys.exit()
     #while 1:
     #    if t is None:
     #        print "*** Se encontro EOF intentando resolver el error *** "
@@ -486,6 +535,7 @@ def p_error(t):
     #    yacc.errok()
     #else:
     if t is None:
+        yacc.errok()
         return
     t = yacc.token() 
     yacc.restart()

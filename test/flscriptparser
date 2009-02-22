@@ -1,14 +1,32 @@
 #!/bin/sh
 PARSE_FILES="$*"
+if [ "$1" = "--openwith" ]; then
+    OPENWITH="$2"
+    PARSE_FILES=""
+fi
+LOGS=""
 if [ "$PARSE_FILES" = "" ]; then
-  PARSE_FILES=*.qs
+  PARSE_FILES=`echo *.qs`
+  if [ "$PARSE_FILES" = '*.qs' ]; then
+      PARSE_FILES=""
+      echo "-- No input files given and no .qs files found on this directory. --"
+  else
+      LOGS=`echo .parse-*.qs.log`
+      if [ "$LOGS" = '.parse-*.qs.log' ]; then
+          LOGS=""
+      else
+          echo "INFO: Parsing previously failed files only"
+      fi
+
+  fi
+  
 fi
 
 THISFILE="$0"
 readlink "$0" >/dev/null && THISFILE=`readlink "$0"`
 THISDIR=`dirname "$THISFILE"`
 APPDIR=`dirname "$THISDIR"`
-echo "Starting parsers for $PARSE_FILES"
+#echo "Starting parsers for $PARSE_FILES"
 TOTALFILES=""
 OKFILES=""
 
@@ -16,23 +34,38 @@ for file in $PARSE_FILES
 do
   NAME=`basename $file`
   DIR=`dirname $file`
-  echo -n "$DIR Parsing $NAME . . . "
   LOGFILE="$DIR/.parse-$NAME.log"
-  python "$APPDIR/flscriptparse.py" $file 2>/dev/null >$LOGFILE
-  ERRORCOUNT=`grep "#ERROR#" $LOGFILE | wc -l`
+  if [ "$LOGS" != '' ]; then
+    if [ ! -e $LOGFILE ]; then
+       continue;
+    fi
+  fi
+  echo -n "$DIR Parsing $NAME . . . "
+  ERRORCOUNT="0"
+  python "$APPDIR/flscriptparse.py" $file 2>/tmp/errorlog.txt >$LOGFILE || (cat /tmp/errorlog.txt; echo "FATAL ERROR: Can't execute the parser."; ERRORCOUNT="1";)
+  if [ "$ERRORCOUNT" = "0" ]; then
+    ERRORCOUNT=`grep "#ERROR#" $LOGFILE | wc -l`
+  fi
+  
   TOTALFILES+="$file
 "
   if [ "$ERRORCOUNT" = "0" ]; then
     echo "done."
     OKFILES+="$file
 "
+    cat $LOGFILE
     unlink $LOGFILE
-  elif [ "$ERRORCOUNT" = "1" ]; then
-    echo -n "$ERRORCOUNT Error found."
-    grep "#ERROR#" -B10 -m1 $LOGFILE
   else
-    echo -n "$ERRORCOUNT Errors found."
+      if [ "$ERRORCOUNT" = "1" ]; then
+        echo -n "$ERRORCOUNT Error found."
+      else
+        echo -n "$ERRORCOUNT Errors found."
+      fi
     grep "#ERROR#" -B10 -m1 $LOGFILE
+    echo "___"
+    if [ "$OPENWITH" != '' ]; then
+        $OPENWITH $file
+    fi
   fi
 done
 OKFILES="`echo -n "$OKFILES" | wc -l`"

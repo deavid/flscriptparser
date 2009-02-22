@@ -11,35 +11,39 @@ import ply.lex as lex
 
 # Reserved words
 reserved = (
-    'AUTO', 'BREAK', 'CASE', 'CHAR', 'CONST', 'CONTINUE', 'DEFAULT', 'DO', 'DOUBLE',
-    'ELSE', 'ENUM', 'EXTERN', 'FLOAT', 'FOR', 'GOTO', 'IF', 'INT', 'LONG', 'REGISTER',
-    'RETURN', 'SHORT', 'SIGNED', 'SIZEOF', 'STATIC', 'STRUCT', 'SWITCH', 'TYPEDEF',
-    'UNION', 'UNSIGNED', 'VOID', 'VOLATILE', 'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
+    'BREAK', 'CASE', 'CONST', 'CONTINUE', 'DEFAULT', 'DO',
+    'ELSE', 'FOR', 'IF', 
+    'RETURN', 
+    #'STRUCT', 
+    'SWITCH', 
+    'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
     'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE'
     )
 
 tokens = reserved + (
     # Literals (identifier, integer constant, float constant, string constant, char const)
-    'FID','ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'AT',
+    'ID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'AT',
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
-    'OR', 'AND', 'NOT', 'XOR', 'LSHIFT', 'RSHIFT',
+    'OR', 'AND', 
+    #'NOT', 
+    'XOR', 'LSHIFT', 'RSHIFT',
     'LOR', 'LAND', 'LNOT',
     'LT', 'LE', 'GT', 'GE', 'EQ', 'NE',
     
     # Assignment (=, *=, /=, %=, +=, -=, <<=, >>=, &=, ^=, |=)
     'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL',
-    'LSHIFTEQUAL','RSHIFTEQUAL', 'ANDEQUAL', 'XOREQUAL', 'OREQUAL',
+#    'LSHIFTEQUAL','RSHIFTEQUAL', 'ANDEQUAL', 'XOREQUAL', 'OREQUAL',
 
     # Increment/decrement (++,--)
     'PLUSPLUS', 'MINUSMINUS',
 
     # Structure dereference (->)
-    'ARROW',
+#    'ARROW',
 
     # Conditional operator (?)
-    'CONDOP',
+#    'CONDOP',
     
     # Delimeters ( ) [ ] { } , . ; :
     'LPAREN', 'RPAREN',
@@ -48,14 +52,14 @@ tokens = reserved + (
     'COMMA', 'PERIOD', 'SEMI', 'COLON',
 
     # Ellipsis (...)
-    'ELLIPSIS',
+#    'ELLIPSIS',
     'DOCSTRINGOPEN',
-    'COMMENTOPEN',
+ #   'COMMENTOPEN',
     'COMMENTCLOSE',
     )
 
 # Completely ignored characters
-t_ignore           = ' \t\x0c'
+t_ignore           = ' \r\t\x0c'
 
 # Newlines
 def t_NEWLINE(t):
@@ -70,7 +74,7 @@ t_DIVIDE           = r'/'
 t_MOD              = r'%'
 t_OR               = r'\|'
 t_AND              = r'&'
-t_NOT              = r'~'
+#t_NOT              = r'~'
 t_XOR              = r'\^'
 t_LSHIFT           = r'<<'
 t_RSHIFT           = r'>>'
@@ -92,21 +96,23 @@ t_DIVEQUAL         = r'/='
 t_MODEQUAL         = r'%='
 t_PLUSEQUAL        = r'\+='
 t_MINUSEQUAL       = r'-='
+"""
 t_LSHIFTEQUAL      = r'<<='
 t_RSHIFTEQUAL      = r'>>='
 t_ANDEQUAL         = r'&='
 t_OREQUAL          = r'\|='
 t_XOREQUAL         = r'^='
+"""
 
 # Increment/decrement
 t_PLUSPLUS         = r'\+\+'
 t_MINUSMINUS       = r'--'
 
 # ->
-t_ARROW            = r'->'
+#t_ARROW            = r'->'
 
 # ?
-t_CONDOP           = r'\?'
+#t_CONDOP           = r'\?'
 
 
 # Delimeters
@@ -120,7 +126,7 @@ t_COMMA            = r','
 t_PERIOD           = r'\.'
 t_SEMI             = r';'
 t_COLON            = r':'
-t_ELLIPSIS         = r'\.\.\.'
+#t_ELLIPSIS         = r'\.\.\.'
 t_AT               = r'@'
 # Identifiers and reserved words
 
@@ -160,7 +166,7 @@ def t_DOCSTRINGOPEN(t):
     r'/\*\*[ ]+'
     return t;
 
-t_COMMENTOPEN      = r'/\*'
+#t_COMMENTOPEN      = r'/\*'
 t_COMMENTCLOSE     = r'\*/'
 
  
