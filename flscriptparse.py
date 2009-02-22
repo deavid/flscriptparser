@@ -15,6 +15,165 @@ start = "source"
 reserv=['nonassoc']
 reserv+=list(flex.reserved)
 
+class cBase:
+    def __init__(self):
+        self.type = ("Unknown","Unknown")
+        self.codedepth = 0
+    def __len__(self):
+        return 1;
+
+class cBaseItem(cBase):
+    def __init__(self,value):
+        cBase.__init__(self)
+        self.type = ("Item","Unknown")
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+class cBaseItemList(cBase):
+    def __init__(self,itemList,prefix,suffix):
+        cBase.__init__(self)
+        self.type = ("ItemList","Unknown")
+        self.itemList = itemList
+        self.prefix = prefix
+        self.suffix = suffix
+
+    def __str__(self):
+        return str(self.prefix) + str(self.itemList) + str(self.suffix)
+        
+
+class cBaseVarSpec(cBase):
+    def __init__(self,name,vartype=None,value=None):
+        cBase.__init__(self)
+        self.type = ("Item","Variable")
+        self.value = value
+        self.vartype = vartype
+        self.name = name
+
+    def __str__(self):
+        txt=self.name
+        if self.vartype: txt+=":"+self.vartype
+        if self.value: txt+="="+str(self.value)
+        return txt
+
+    
+        
+class cBaseList(cBase):
+    def __init__(self):
+        cBase.__init__(self)
+        self.type = ("List","Unknown")
+        self.slice = []
+        self.byType = {}
+        self.bySubtype = {}
+        self.byDefName = {}
+
+    def __len__(self):
+        return len(self.slice);
+
+    def addChild(self,child):
+        try:
+            ctype, csubtype = child.type
+        except:
+            raise NameError, "Base Class doesn't have `type` atribute or is incorrect."
+        self.slice.append(child)
+        if not hasattr(self.byType,ctype):
+            self.byType[ctype]=[]
+
+        if not hasattr(self.bySubtype,ctype):
+            self.bySubtype["%s:%s" % (ctype,csubtype)]=[]
+            
+        self.byType[ctype].append(child)
+        self.bySubtype["%s:%s" % (ctype,csubtype)].append(child)
+        
+        if ctype == "Declaration":
+            try:
+                cname = child.name
+            except:
+                raise NameError, "Declaration Class doesn't have `name` atribute."
+            
+        try:
+            child.codedepth = self.codedepth + 1
+        except:
+            raise NameError, "Base Class doesn't have `codedepth` atribute."
+        
+    def __str__(self):
+        if len(self.slice) == 1:
+            c = self.slice[0]
+            return " " + str(c).replace("\n","\n" + "  " * c.codedepth) + " "
+        txt = "\n"
+        for c in self.slice:
+            txt += "  " * c.codedepth + str(c).replace("\n","\n" + "  " * c.codedepth)
+            txt += "\n"
+        return txt
+        
+            
+        
+class cBaseListInline(cBaseList):
+    def __init__(self,separator=", "):
+        cBaseList.__init__(self)
+        self.separator = separator
+
+    def __str__(self):
+        txt = ""
+        for c in self.slice:
+            txt += str(c).replace("\n","\n" + "  " * c.codedepth)
+            txt += self.separator
+        
+        if len(self.separator) == 0:
+            return txt
+        else:
+            return txt[:-len(self.separator)]
+    
+        
+class cStatementList(cBaseList):
+    def __init__(self):
+        cBaseList.__init__(self)
+        self.type = ("List","Statement")
+
+class cBaseDecl(cBase):
+    def __init__(self,name):
+        cBase.__init__(self)
+        self.type = ("Declaration","Unknown")
+        self.name = name
+        
+    def __str__(self):
+        return "@unknown declaration %s" % self.name
+
+
+class cFuncDecl(cBaseDecl):
+    def __init__(self,name,arglist,rettype,source):
+        cBaseDecl.__init__(self,name=name)
+        self.type = ("Declaration","Function")
+        self.arglist = arglist
+        self.rettype = rettype
+        self.source = source
+        
+
+    def __str__(self):
+        if self.rettype:
+            ret=" : " + self.rettype
+        else:
+            ret=""
+        return 'function %s(%s)%s {%s}' % (self.name,self.arglist,ret,self.source)
+
+class cClassDecl(cBaseDecl):
+    def __init__(self,name,extends,source):
+        cBaseDecl.__init__(self,name=name)
+        self.type = ("Declaration","Class")
+        self.extends = extends
+        self.source = source
+        
+
+    def __str__(self):
+        if self.extends:
+            ext = " extends " + self.extends
+        else:
+            ext = ""
+            
+        return 'class %s%s {%s}' % (self.name,ext,self.source)
+
+
 
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
@@ -46,10 +205,10 @@ def p_case_block(p):
 
 def p_id_or_constant(p):
     '''
-    id_or_constant  : ID
+    id_or_constant  : variable
                     | constant
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
     
     
 def p_case_default(p):
@@ -88,22 +247,6 @@ def p_source2(p):
 
     
 
-def p_classdeclarationsource1(p):
-    '''
-    classdeclarationsource  : vardeclaration
-                            | funcdeclaration
-    '''
-    if p[1]:
-        p[0]=[p[1]]
-
-def p_classdeclarationsource2(p):
-    '''
-    classdeclarationsource  : classdeclarationsource classdeclarationsource 
-    '''
-    try:
-        p[0]=p[1]+p[2]
-    except:
-        p[0]=str(p[1])+str(p[2])
 
 def p_basicsource(p):
     '''
@@ -133,13 +276,17 @@ def p_statement_list1(p):
     '''
     statement_list      : statement_list statement
     '''
-    p[0]=p[1]+[p[2]]
+    p[0]=p[1]
+    p[0].addChild(cBaseItem(p[2]))
+
 
 def p_statement_list2(p):
     '''
     statement_list      : statement 
     '''
-    p[0]=[p[1]]
+    
+    p[0]=cStatementList()
+    p[0].addChild(cBaseItem(p[1]))
 
 def p_statement_list3(p):
     '''
@@ -150,12 +297,6 @@ def p_statement_list3(p):
     
 
 
-def aux_vardeclaration(name,type=None,value=None):
-    return {
-            "name" : name,
-            "type" : type,
-            "value" : value,
-        }
 
 def p_optvartype(p):
     '''
@@ -166,24 +307,25 @@ def p_optvartype(p):
     if len(p.slice) >  2: p[0] = p[2]
     
 
-def p_vardeclaration(v):
+def p_vardeclaration(p):
     '''
     vardeclaration  :  VAR vardecl_list SEMI
                     |  CONST vardecl_list SEMI
     '''
-    v[0] = (v[1],v[2])
+    p[0] = cBaseItemList(itemList=p[2],prefix=p[1]+" ",suffix=";")
 
-def p_vardeclaration_1(v):
-    '''
-    vardecl  :  ID optvartype
-    '''
-    v[0] = aux_vardeclaration(name=v[1],type=v[2])
     
 def p_vardeclaration_2(v):
     '''
     vardecl  :  ID optvartype EQUALS expression 
+    vardecl  :  ID optvartype
     '''
-    v[0] = aux_vardeclaration(name=v[1],type=v[2],value=v[4])
+    if len(v.slice)>3:
+        val = v[4] 
+    else:
+        val = None
+    
+    v[0] = cBaseVarSpec(name=v[1],vartype=v[2],value=val)
     
     
 
@@ -192,16 +334,19 @@ def p_vardecl_list(p):
     vardecl_list    : vardecl
                     | vardecl_list COMMA vardecl
     '''
-    if len(p.slice) == 1: p[0] = []
-    if len(p.slice) == 2: p[0] = [p[1]]
-    if len(p.slice) == 4: p[0] = p[1] + [p[3]]
+    if len(p.slice) == 2: 
+        p[0] = cBaseListInline()
+        p[0].addChild(p[1])
+    if len(p.slice) == 4: 
+        p[0] = p[1]
+        p[0].addChild(p[3])
         
 def p_arglist(p):
     '''
     arglist : vardecl_list
             |
     '''
-    if len(p.slice) == 1: p[0] = []
+    if len(p.slice) == 1: p[0] = cBaseListInline()
     else:  p[0] = p[1]
     
     
@@ -209,6 +354,8 @@ def p_funcdeclaration(p):
     '''
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     '''
+    p[0] = cFuncDecl(name=p[2],arglist=p[4],rettype=p[6],source=p[8])
+    """
     p[0] = "function %s (%s) : %s " % (p[2],p[4],p[6])
     if p[8]:
         p[0] += "{\n"
@@ -217,13 +364,13 @@ def p_funcdeclaration(p):
         p[0] += "\n}"
         
     else: p[0] += "{}"
-    
+    """
     
 def p_callarg(p):
     '''
     callarg     : expression
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
     
 def p_callargs(p):
     '''
@@ -231,21 +378,33 @@ def p_callargs(p):
                 | callargs COMMA callarg
                 | empty
     '''
-    if len(p.slice) == 1: p[0] = []
-    if len(p.slice) == 2: p[0] = [p[1]]
-    if len(p.slice) == 4: p[0] = p[1] + [p[3]]
+    if len(p.slice) == 1: p[0] = cBaseListInline()
+    if len(p.slice) == 2: 
+        p[0] = cBaseListInline()
+        if p[1] is cBase:
+            p[0].addChild(p[1])
+        else:
+            p[0].addChild(cBaseItem(p[1]))
+        
+    if len(p.slice) == 4: 
+        p[0] = p[1]
+        if p[3] is cBase:
+            p[0].addChild(p[3])
+        else:
+            p[0].addChild(cBaseItem(p[3]))
 
 def p_funccall(p):
     '''
     funccall    : ID LPAREN callargs RPAREN
+                | ID LPAREN RPAREN
                 | variable PERIOD funccall
                 | funccall PERIOD funccall
                 | LPAREN funccall RPAREN
     '''
-    p[0] = []
+    p[0] = ""
     i=0
     for sl in p.slice:
-        if i: p[0].append(sl.value)
+        if i: p[0]+=str(sl.value)
         i+=1
     
 
@@ -271,7 +430,7 @@ def p_mathoperator(p):
                     | RSHIFT
                     | AND
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
 
 def p_expression(p):
     '''
@@ -289,7 +448,12 @@ def p_expression(p):
                 | expression boolcmp_symbol expression
                 | expression cmp_symbol expression
     '''
-    p[0] = p[1:]
+    p[0] = cBaseListInline(separator = " ")
+    for val in p[1:]:
+        if val is cBase:
+            p[0].addChild(val)
+        else:
+            p[0].addChild(cBaseItem(val))
     
     
 def p_variable(p):
@@ -302,7 +466,15 @@ def p_variable(p):
                 | variable LBRACKET inlinestoreinstruction RBRACKET
                 | LPAREN variable RPAREN 
     '''
-    p[0] = p[1:]
+    if len(p.slice) == 2:
+        p[0] = cBaseItem(p[1])
+    else:
+        p[0] = cBaseListInline(separator = "")
+        for val in p[1:]:
+            if val is cBase:
+                p[0].addChild(val)
+            else:
+                p[0].addChild(cBaseItem(val))
 
 def p_inlinestoreinstruction(p):
     '''
@@ -311,42 +483,51 @@ def p_inlinestoreinstruction(p):
                             | variable MINUSMINUS
                             | MINUSMINUS variable 
     '''
-    p[0] = p[1:]
+    p[0] = str(p[1]) + str(p[2])
     
 def p_storeinstruction(p):
     '''
         storeinstruction    : variable EQUALS expression 
-                            | inlinestoreinstruction
                             | variable PLUSEQUAL expression
                             | variable MINUSEQUAL expression
                             | variable MODEQUAL expression
                             | variable DIVEQUAL expression
                             | variable TIMESEQUAL expression
+                            | inlinestoreinstruction
+                            | DELETE variable
             
     '''
-    p[0] = p[1:]
+    p[0] = cBaseListInline(separator = " ")
+    for val in p[1:]:
+        if val is cBase:
+            p[0].addChild(val)
+        else:
+            p[0].addChild(cBaseItem(val))
+def p_flowinstruction(p):
+    '''
+    flowinstruction : RETURN expression 
+                    | THROW expression 
+                    | RETURN 
+                    | BREAK 
+                    | CONTINUE 
+    '''
+    if len(p.slice)==3:
+        p[0]=cBaseItem(value="%s %s" % (p[1],p[2]))
+    
+    if len(p.slice)==2:
+        p[0]=cBaseItem(value=p[1])
 
 def p_instruction(p):
     '''
     instruction : storeinstruction SEMI
                 | funccall SEMI
-                | RETURN expression SEMI
-                | RETURN SEMI
-                | THROW expression SEMI
-                | BREAK SEMI
-                | CONTINUE SEMI
-                | DELETE ID SEMI
+                | flowinstruction SEMI
                 | SEMI
     '''
-    p[0]=p[1:]
-    """
-    if p.slice[1].type=="funccall":
-        p[0]="Ejecucion de '%s'" % (p[1])
-    elif p.slice[1].type=="RETURN":
-        p[0]="Se Retorna el valor '%s'" % (p[2])
-    elif p.slice[1].type=="ID":
-        p[0]="Variable '%s' asignada al valor '%s'" % (p[1], p[3])
-        """
+    if len(p.slice)==2: return
+    
+    p[0]=p[1]
+
 
 def p_optextends(p):
     '''
@@ -362,17 +543,30 @@ def p_classdeclaration(p):
     '''
     classdeclaration   : CLASS ID optextends LBRACE classdeclarationsource RBRACE
     '''
-    p[0] = "class " + p[2]
-    if p[3]: p[0] = "class %s (extends %s)" % (p[2], p[3])
-
-    if len(p[5]): 
-        p[0] += "{\n"
-        for ln in p[5]:
-            p[0] += str(ln) + "\n"
-        p[0] += "\n}"
-        
-    else: p[0] += "{}"
+    p[0] = cClassDecl(name=p[2],extends=p[3],source=p[5])
     
+    
+def p_classdeclarationsource1(p):
+    '''
+    classdeclarationsource  : vardeclaration
+                            | funcdeclaration
+                            | classdeclarationsource vardeclaration
+                            | classdeclarationsource funcdeclaration
+    '''
+    if len(p.slice)==2:
+        p[0] = cBaseList()
+        added = p[1]
+    else:
+        p[0] = p[1]
+        added = p[2]
+     
+            
+    if added is cBase:
+        p[0].addChild(added)
+    else:
+        p[0].addChild(cBaseItem(added))
+        
+
 
 
 def p_docstring(p):
@@ -404,21 +598,28 @@ def p_constant(p):
                 | error
               
               '''
-    p[0] = p[1]
+    p[0] = cBaseItem(p[1])
 
 def p_statement_block(p):
     '''
     statement_block : statement
                     | LBRACE statement_list RBRACE
     '''
-    p[0] = p[1:]
+    if len(p.slice)>2: 
+        p[0] = p[2]
+    else:
+        p[0] = cStatementList()
+        p[0].addChild(cBaseItem(p[1]))
 
 def p_optelse(p):
     '''
     optelse : ELSE statement_block
             | empty
     '''
-    p[0] = p[1:]
+    p[0] = []
+    if len(p.slice)>2 and p[2]:
+        p[0]=p[2]
+    
 
 def p_cmp_symbol(p):
     '''
@@ -429,27 +630,40 @@ def p_cmp_symbol(p):
                 | EQ
                 | NE
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
 
 def p_boolcmp_symbol(p):
     '''
     boolcmp_symbol  : LOR
                     | LAND
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
 
 def p_condition(p):
     '''
     condition   : expression 
     '''
-    p[0] = p[1:]
+    p[0] = p[1]
 
 def p_ifstatement(p):
     '''
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
-                | error
     '''
-    p[0] = p[1:]
+    p[0] = "if (%s) " % str(p[3])
+
+    if p[5]: 
+        p[0] += "{"
+        p[0] += str(p[5])
+        p[0] += "}"
+        
+    else: p[0] += "{}"
+
+    if p[6]: 
+        p[0] += " else {"
+        p[0] += str(p[6])
+        p[0] += "}"
+        
+    
 
 def p_whilestatement(p):
     '''
@@ -601,7 +815,11 @@ else:
 
 try:
     for line in prog:
-        print ">>>" , line
+        print line
+        print 
+        
+        
+    
 except:
     print "Error GRAVE de parseo"
 
