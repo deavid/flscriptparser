@@ -1,8 +1,21 @@
+debug = 3
 
 class cBase:
     def __init__(self):
         self.type = ("Unknown","Unknown")
         self.codedepth = 0
+
+    def setSubtype(self,newsubtype):
+        x, y = self.type
+        self.type = (x,newsubtype)
+    
+    def setType(self,newtype):
+        x, y = self.type
+        self.type = (newtype,y)
+    
+    def addCodeDepth(self):
+        self.codedepth += 1
+    
     def __len__(self):
         return 1;
 
@@ -37,7 +50,12 @@ class cBaseItemList(cBase):
                 item.type = (ctype, csubtype)
             
     def __str__(self):
-        return str(self.prefix) + str(self.itemList) + str(self.suffix)
+        global debug
+        txt = str(self.prefix) + str(self.itemList) + str(self.suffix)
+        txt = txt.strip()
+        if debug>=2:
+            txt = "#%s/%s:" % self.itemList.type + txt + "|"
+        return txt 
         
 
 class cBaseVarSpec(cBase):
@@ -70,6 +88,9 @@ class cBaseList(cBase):
         return len(self.slice);
 
     def includeItem(self,child):
+        if not isinstance(child,cBase):
+            raise NameError, "Child is not an instance of Base Class!"
+        
         try:
             ctype, csubtype = child.type
         except:
@@ -94,15 +115,28 @@ class cBaseList(cBase):
             else:
                 self.byDefName[cname]=child
         try:
-            child.codedepth = self.codedepth + 1
+            child.addCodeDepth()
         except:
-            raise NameError, "Base Class doesn't have `codedepth` atribute."
+            print repr(child)
+            raise NameError, "Base Class doesn't have `addCodeDepth` function."
 
         if ctype == "ItemList":
             for item in child.itemList.slice:
                 itype, isubtype = item.type
                 if itype != "ItemList":
                     self.addChild(item, hidden = True)
+    
+    def addCodeDepth(self):
+        cBase.addCodeDepth(self)
+        sslice = self.slice[:]
+
+        for e in self.hidden:
+            sslice.remove(e)
+
+        for child in sslice:
+            child.addCodeDepth()
+        
+
 
     def addAuto(self,element):
         if not isinstance(element,cBase):
@@ -116,21 +150,35 @@ class cBaseList(cBase):
         if hidden: self.hidden.append(child)
         
     def __str__(self):
+        global debug
         sslice = self.slice[:]
 
         for e in self.hidden:
             sslice.remove(e)
+
+
+        if debug:
+            txt = "\n"
+            # --------- DEBUG OUTPUT VARDECL --------- 
+            if len(self.byDefName)>0:
+                txt += "  " * self.codedepth + "  /** Declared vars: "
+                for definition in self.byDefName:
+                    txt += definition + "; "
+                txt += "**/\n"
+
+            for c in sslice:
+                t1, t2 = c.type
+                txt += "%-17s" % ("%-8s/%-8s" % (t1[:8],t2[:8]))+ ">" + ". " * c.codedepth + str(c)
+                txt += "$\n"
+            return txt
+
+
             
         if len(sslice) == 1:
             c = str(sslice[0])
             if "\n" not in c:
                 return " " + c + " "
         txt = "\n"
-        # --------- DEBUG OUTPUT VARDECL --------- 
-        txt += "  " * self.codedepth + "  /** Declared vars: "
-        for definition in self.byDefName:
-            txt += definition + "; "
-        txt += "**/\n"
 
         #for child in self.slice:
         #    if str(child.type[0]) != "ItemList":
@@ -140,7 +188,8 @@ class cBaseList(cBase):
         
         
         for c in sslice:
-            txt += "  " * c.codedepth + str(c).replace("\n","\n" + "  " * c.codedepth)
+            t1, t2 = c.type
+            txt += "    " * c.codedepth + str(c).replace("\n","\n    ")
             txt += "\n"
         return txt
         
@@ -152,9 +201,16 @@ class cBaseListInline(cBaseList):
         self.separator = separator
 
     def __str__(self):
+        global debug
         txt = ""
         for c in self.slice:
+            if debug>=3:
+                txt += "[%s/%s: " % c.type 
+        
             txt += str(c).replace("\n","\n" + "  " * c.codedepth)
+            if debug>=3:
+                txt += "]"
+            
             txt += self.separator
         
         if len(self.separator) == 0:
@@ -184,7 +240,29 @@ class cFuncDecl(cBaseDecl):
         self.type = ("Declaration","Function")
         self.arglist = arglist
         self.rettype = rettype
+        if not isinstance(source,cBaseList):
+            iList = cBaseList()
+            iList.addAuto(source)
+            source = iList
+            
+            
+        if not isinstance(source,cBaseList):
+            raise NameError, "source no es un cBaseList: %s" % repr(itemList)
+
         self.source = source
+        
+    def addCodeDepth(self):
+        cBase.addCodeDepth(self)
+        try:
+            self.source.addCodeDepth()
+        except:
+            import traceback,sys
+            print "Exception in user code:"
+            print '-'*60
+            traceback.print_exc(file=sys.stdout)
+            print '-'*60
+
+            
         
 
     def __str__(self):
@@ -199,8 +277,26 @@ class cClassDecl(cBaseDecl):
         cBaseDecl.__init__(self,name=name)
         self.type = ("Declaration","Class")
         self.extends = extends
+        if not isinstance(source,cBaseList):
+            iList = cBaseList()
+            iList.addAuto(source)
+            source = iList
+            
+            
+        if not isinstance(source,cBaseList):
+            raise NameError, "source no es un cBaseList: %s" % repr(itemList)
         self.source = source
         
+    def addCodeDepth(self):
+        cBase.addCodeDepth(self)
+        try:
+            self.source.addCodeDepth()
+        except:
+            import traceback,sys
+            print "Exception in user code:"
+            print '-'*60
+            traceback.print_exc(file=sys.stdout)
+            print '-'*60
 
     def __str__(self):
         if self.extends:

@@ -72,21 +72,31 @@ def p_case_block_list(p):
     p[0] = p[1:]
     
 
+def p_source_element(p):
+    '''
+    source_element  : docstring
+                    | vardeclaration
+                    | classdeclaration
+                    | funcdeclaration
+    '''
+    p[0]=p[1]
+
+
 def p_source(p):
     '''
-    source  : docstring
-            | classdeclaration
-            | funcdeclaration
+    source  : source_element
+    source  : source source_element
             | statement_list
+    
     '''
-    p[0]=[p[1]]
-
-
-def p_source2(p):
-    '''
-    source  : source source 
-    '''
-    p[0]=p[1]+p[2]
+    if len(p.slice)==2:
+        p[0]= cBaseList()
+        val = p[1]
+    else:
+        p[0]= p[1]
+        val = p[2]
+    
+    p[0].addAuto(val)
 
 
     
@@ -180,6 +190,7 @@ def p_vardecl_list(p):
     '''
     if len(p.slice) == 2: 
         p[0] = cBaseListInline()
+        p[0].setSubtype("Variable")
         p[0].addAuto(p[1])
     if len(p.slice) == 4: 
         p[0] = p[1]
@@ -231,20 +242,51 @@ def p_callargs(p):
         p[0] = p[1]
         p[0].addAuto(p[3])
 
+def p_varorcall(p):
+    '''
+    varorcall   : variable
+                | funccall
+    '''
+    p[0] = p[1]
+    
+
+def p_member(p):
+    '''
+    member      : varorcall PERIOD varorcall
+    '''
+    
+def p_member2(p):
+    '''
+    member      : member PERIOD varorcall
+    '''
+    
 def p_funccall(p):
     '''
     funccall    : ID LPAREN callargs RPAREN
                 | ID LPAREN RPAREN
-                | variable PERIOD funccall
-                | funccall PERIOD funccall
-                | LPAREN funccall RPAREN
     '''
-    p[0] = ""
-    i=0
-    for sl in p.slice:
-        if i: p[0]+=str(sl.value)
-        i+=1
+    p[0]=""
+    for n in p[1:]:
+        p[0]+=str(n)
+    p[0]=cBaseItem(p[0])    
+    p[0].setSubtype("FuncCall")
     
+def p_funccall_aux(p):
+    '''                
+    funccall    : variable PERIOD funccall
+                | funccall PERIOD funccall
+    '''
+    p[0] = cBaseListInline(separator = "")
+    for val in p[1:]:
+        p[0].addAuto(val)
+    p[0].type = ("List","StructCall")
+    
+
+def p_funccall_aux2(p):
+    '''
+    funccall    : LPAREN funccall RPAREN
+    '''
+    p[0] = p[2]
 
 def p_exprval(p):
     '''
@@ -289,6 +331,7 @@ def p_expression(p):
     p[0] = cBaseListInline(separator = " ")
     for val in p[1:]:
         p[0].addAuto(val)
+    p[0].setSubtype("Expression")
     
     
 def p_variable(p):
@@ -307,7 +350,9 @@ def p_variable(p):
         p[0] = cBaseListInline(separator = "")
         for val in p[1:]:
             p[0].addAuto(val)
-
+    
+    p[0].setSubtype("Variable")
+    
 def p_inlinestoreinstruction(p):
     '''
     inlinestoreinstruction  : variable PLUSPLUS
@@ -332,7 +377,7 @@ def p_storeinstruction(p):
     p[0] = cBaseListInline(separator = " ")
     for val in p[1:]:
         p[0].addAuto(val)
-
+    p[0].setSubtype("Store")
 
 def p_flowinstruction(p):
     '''
@@ -643,9 +688,7 @@ else:
 
 
 
-for line in prog:
-    print str(line)
-    print 
+print prog
     
         
 
