@@ -121,7 +121,7 @@ def p_statement_list1(p):
     statement_list      : statement_list statement
     '''
     p[0]=p[1]
-    p[0].addChild(cBaseItem(p[2]))
+    p[0].addAuto(p[2])
 
 
 def p_statement_list2(p):
@@ -130,7 +130,7 @@ def p_statement_list2(p):
     '''
     
     p[0]=cStatementList()
-    p[0].addChild(cBaseItem(p[1]))
+    p[0].addAuto(p[1])
 
 def p_statement_list3(p):
     '''
@@ -156,7 +156,7 @@ def p_vardeclaration(p):
     vardeclaration  :  VAR vardecl_list SEMI
                     |  CONST vardecl_list SEMI
     '''
-    p[0] = cBaseItemList(itemList=p[2],prefix=p[1]+" ",suffix=";")
+    p[0] = cBaseItemList(itemList=p[2],prefix=p[1]+" ",suffix=";",subtype="Declaration")
 
     
 def p_vardeclaration_2(v):
@@ -180,10 +180,10 @@ def p_vardecl_list(p):
     '''
     if len(p.slice) == 2: 
         p[0] = cBaseListInline()
-        p[0].addChild(p[1])
+        p[0].addAuto(p[1])
     if len(p.slice) == 4: 
         p[0] = p[1]
-        p[0].addChild(p[3])
+        p[0].addAuto(p[3])
         
 def p_arglist(p):
     '''
@@ -225,17 +225,11 @@ def p_callargs(p):
     if len(p.slice) == 1: p[0] = cBaseListInline()
     if len(p.slice) == 2: 
         p[0] = cBaseListInline()
-        if p[1] is cBase:
-            p[0].addChild(p[1])
-        else:
-            p[0].addChild(cBaseItem(p[1]))
+        p[0].addAuto(p[1])
         
     if len(p.slice) == 4: 
         p[0] = p[1]
-        if p[3] is cBase:
-            p[0].addChild(p[3])
-        else:
-            p[0].addChild(cBaseItem(p[3]))
+        p[0].addAuto(p[3])
 
 def p_funccall(p):
     '''
@@ -294,10 +288,7 @@ def p_expression(p):
     '''
     p[0] = cBaseListInline(separator = " ")
     for val in p[1:]:
-        if val is cBase:
-            p[0].addChild(val)
-        else:
-            p[0].addChild(cBaseItem(val))
+        p[0].addAuto(val)
     
     
 def p_variable(p):
@@ -315,10 +306,7 @@ def p_variable(p):
     else:
         p[0] = cBaseListInline(separator = "")
         for val in p[1:]:
-            if val is cBase:
-                p[0].addChild(val)
-            else:
-                p[0].addChild(cBaseItem(val))
+            p[0].addAuto(val)
 
 def p_inlinestoreinstruction(p):
     '''
@@ -343,10 +331,9 @@ def p_storeinstruction(p):
     '''
     p[0] = cBaseListInline(separator = " ")
     for val in p[1:]:
-        if val is cBase:
-            p[0].addChild(val)
-        else:
-            p[0].addChild(cBaseItem(val))
+        p[0].addAuto(val)
+
+
 def p_flowinstruction(p):
     '''
     flowinstruction : RETURN expression 
@@ -370,7 +357,7 @@ def p_instruction(p):
     '''
     if len(p.slice)==2: return
     
-    p[0]=p[1]
+    p[0]=cBaseItemList(itemList=p[1],prefix="",suffix=";",subtype="Instruction")
 
 
 def p_optextends(p):
@@ -405,10 +392,7 @@ def p_classdeclarationsource1(p):
         added = p[2]
      
             
-    if added is cBase:
-        p[0].addChild(added)
-    else:
-        p[0].addChild(cBaseItem(added))
+    p[0].addAuto(added)
         
 
 
@@ -453,7 +437,7 @@ def p_statement_block(p):
         p[0] = p[2]
     else:
         p[0] = cStatementList()
-        p[0].addChild(cBaseItem(p[1]))
+        p[0].addAuto(p[1])
 
 def p_optelse(p):
     '''
@@ -657,15 +641,13 @@ else:
 
     prog = parse(line)     
 
-try:
-    for line in prog:
-        print line
-        print 
-        
-        
+
+
+for line in prog:
+    print str(line)
+    print 
     
-except:
-    print "Error GRAVE de parseo"
+        
 
 
 

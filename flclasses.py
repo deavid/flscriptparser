@@ -16,13 +16,26 @@ class cBaseItem(cBase):
         return str(self.value)
 
 class cBaseItemList(cBase):
-    def __init__(self,itemList,prefix,suffix):
+    def __init__(self,itemList,prefix,suffix,subtype="Unknown"):
         cBase.__init__(self)
-        self.type = ("ItemList","Unknown")
+        self.type = ("ItemList",subtype)
+        if not isinstance(itemList,cBaseList):
+            iList = cBaseList()
+            iList.addAuto(itemList)
+            itemList = iList
+            
+            
+        if not isinstance(itemList,cBaseList):
+            raise NameError, "itemList no es un cBaseList: %s" % repr(itemList)
         self.itemList = itemList
         self.prefix = prefix
         self.suffix = suffix
-
+        if subtype=="Declaration":
+            for item in self.itemList.slice:
+                ctype, csubtype = item.type
+                ctype = subtype
+                item.type = (ctype, csubtype)
+            
     def __str__(self):
         return str(self.prefix) + str(self.itemList) + str(self.suffix)
         
@@ -48,6 +61,7 @@ class cBaseList(cBase):
         cBase.__init__(self)
         self.type = ("List","Unknown")
         self.slice = []
+        self.hidden = []
         self.byType = {}
         self.bySubtype = {}
         self.byDefName = {}
@@ -55,12 +69,11 @@ class cBaseList(cBase):
     def __len__(self):
         return len(self.slice);
 
-    def addChild(self,child):
+    def includeItem(self,child):
         try:
             ctype, csubtype = child.type
         except:
             raise NameError, "Base Class doesn't have `type` atribute or is incorrect."
-        self.slice.append(child)
         if not hasattr(self.byType,ctype):
             self.byType[ctype]=[]
 
@@ -69,24 +82,64 @@ class cBaseList(cBase):
             
         self.byType[ctype].append(child)
         self.bySubtype["%s:%s" % (ctype,csubtype)].append(child)
-        
+
         if ctype == "Declaration":
             try:
                 cname = child.name
             except:
                 raise NameError, "Declaration Class doesn't have `name` atribute."
             
+            if hasattr(self.byDefName,cname):
+                print "#WARNING# Variable %s found, but previously defined in this block"  % cname
+            else:
+                self.byDefName[cname]=child
         try:
             child.codedepth = self.codedepth + 1
         except:
             raise NameError, "Base Class doesn't have `codedepth` atribute."
+
+        if ctype == "ItemList":
+            for item in child.itemList.slice:
+                itype, isubtype = item.type
+                if itype != "ItemList":
+                    self.addChild(item, hidden = True)
+
+    def addAuto(self,element):
+        if not isinstance(element,cBase):
+            element = cBaseItem(element)
+        
+        self.addChild(element)
+    
+    def addChild(self,child,hidden=False):
+        self.includeItem(child)
+        self.slice.append(child)
+        if hidden: self.hidden.append(child)
         
     def __str__(self):
-        if len(self.slice) == 1:
-            c = self.slice[0]
-            return " " + str(c).replace("\n","\n" + "  " * c.codedepth) + " "
+        sslice = self.slice[:]
+
+        for e in self.hidden:
+            sslice.remove(e)
+            
+        if len(sslice) == 1:
+            c = str(sslice[0])
+            if "\n" not in c:
+                return " " + c + " "
         txt = "\n"
-        for c in self.slice:
+        # --------- DEBUG OUTPUT VARDECL --------- 
+        txt += "  " * self.codedepth + "  /** Declared vars: "
+        for definition in self.byDefName:
+            txt += definition + "; "
+        txt += "**/\n"
+
+        #for child in self.slice:
+        #    if str(child.type[0]) != "ItemList":
+        #        txt += str(child.type) + "\n"
+        #        txt += str(child) + "\n"
+        #        txt += "____"+ "\n"
+        
+        
+        for c in sslice:
             txt += "  " * c.codedepth + str(c).replace("\n","\n" + "  " * c.codedepth)
             txt += "\n"
         return txt
