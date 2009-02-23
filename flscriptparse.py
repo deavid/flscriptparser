@@ -242,27 +242,48 @@ def p_callargs(p):
         p[0] = p[1]
         p[0].addAuto(p[3])
 
-def p_varorcall(p):
+def p_member_aux(p):
     '''
-    varorcall   : variable
-                | funccall
+    varmemcall  : variable_1
+                | funccall_1
+                | member_var
+                | member_call
     '''
     p[0] = p[1]
     
 
-def p_member(p):
+def p_member_var(p):
     '''
-    member      : varorcall PERIOD varorcall
+    member_var  : varmemcall PERIOD variable_1
     '''
+    p[0] = cBaseListInline(separator=".")
+    p[0].addAuto(p[1])
+    p[0].addAuto(p[3])
+    p[0].setSubtype("MemberVar")
     
-def p_member2(p):
+def p_member_call(p):
     '''
-    member      : member PERIOD varorcall
+    member_call : varmemcall PERIOD funccall_1
     '''
+    p[0] = cBaseListInline(separator=".")
+    p[0].addAuto(p[1])
+    p[0].addAuto(p[3])
+    p[0].setSubtype("MemberCall")
     
 def p_funccall(p):
     '''
-    funccall    : ID LPAREN callargs RPAREN
+    funccall    : funccall_1
+                | member_call
+                | LPAREN funccall_1 RPAREN
+    '''
+    if len(p.slice) > 2:
+        p[0] = p[2]
+    else:
+        p[0] = p[1]
+    
+def p_funccall_1(p):
+    '''
+    funccall_1  : ID LPAREN callargs RPAREN
                 | ID LPAREN RPAREN
     '''
     p[0]=""
@@ -271,22 +292,7 @@ def p_funccall(p):
     p[0]=cBaseItem(p[0])    
     p[0].setSubtype("FuncCall")
     
-def p_funccall_aux(p):
-    '''                
-    funccall    : variable PERIOD funccall
-                | funccall PERIOD funccall
-    '''
-    p[0] = cBaseListInline(separator = "")
-    for val in p[1:]:
-        p[0].addAuto(val)
-    p[0].type = ("List","StructCall")
-    
 
-def p_funccall_aux2(p):
-    '''
-    funccall    : LPAREN funccall RPAREN
-    '''
-    p[0] = p[2]
 
 def p_exprval(p):
     '''
@@ -315,7 +321,7 @@ def p_mathoperator(p):
 def p_expression(p):
     '''
     expression  : exprval
-                | NEW funccall
+                | NEW funccall_1
                 | NEW ID
                 | expression mathoperator exprval
                 | exprval mathoperator expression
@@ -333,16 +339,24 @@ def p_expression(p):
         p[0].addAuto(val)
     p[0].setSubtype("Expression")
     
-    
+
 def p_variable(p):
     '''
-    variable    : ID 
-                | funccall PERIOD variable 
-                | variable PERIOD variable 
-                | variable LBRACKET id_or_constant RBRACKET
-                | variable LBRACKET exprval RBRACKET
-                | variable LBRACKET inlinestoreinstruction RBRACKET
-                | LPAREN variable RPAREN 
+    variable    : variable_1
+                | member_var
+                | LPAREN variable_1 RPAREN 
+    '''    
+    p[0] = p[1]
+    if len(p.slice) == 4:
+        p[0] = p[2]
+    
+
+def p_variable_1(p):
+    '''
+    variable_1  : ID 
+                | variable_1 LBRACKET id_or_constant RBRACKET
+                | variable_1 LBRACKET exprval RBRACKET
+                | variable_1 LBRACKET inlinestoreinstruction RBRACKET
     '''
     if len(p.slice) == 2:
         p[0] = cBaseItem(p[1])
@@ -401,7 +415,7 @@ def p_instruction(p):
                 | SEMI
     '''
     if len(p.slice)==2: return
-    
+
     p[0]=cBaseItemList(itemList=p[1],prefix="",suffix=";",subtype="Instruction")
 
 
@@ -532,7 +546,7 @@ def p_ifstatement(p):
     else: p[0] += "{}"
 
     if p[6]: 
-        p[0] += " else {"
+        p[0] += "\nelse {"
         p[0] += str(p[6])
         p[0] += "}"
         

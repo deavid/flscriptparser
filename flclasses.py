@@ -1,4 +1,4 @@
-debug = 3
+debug = 0
 
 class cBase:
     def __init__(self):
@@ -33,9 +33,12 @@ class cBaseItemList(cBase):
         cBase.__init__(self)
         self.type = ("ItemList",subtype)
         if not isinstance(itemList,cBaseList):
-            iList = cBaseList()
-            iList.addAuto(itemList)
+            iList = cBaseListInline()
+            iList.addAuto(itemList,subtype=subtype)
             itemList = iList
+            t,st = itemList.slice[0].type
+            #itemList.setSubtype(st)
+            itemList.setSubtype("OneItem")
             
             
         if not isinstance(itemList,cBaseList):
@@ -54,7 +57,7 @@ class cBaseItemList(cBase):
         txt = str(self.prefix) + str(self.itemList) + str(self.suffix)
         txt = txt.strip()
         if debug>=2:
-            txt = "#%s/%s:" % self.itemList.type + txt + "|"
+            txt = "{%s/%s:" % self.itemList.type + txt + "}"
         return txt 
         
 
@@ -138,9 +141,11 @@ class cBaseList(cBase):
         
 
 
-    def addAuto(self,element):
+    def addAuto(self,element,subtype=None):
         if not isinstance(element,cBase):
             element = cBaseItem(element)
+            if subtype:
+                element.setSubtype(subtype)
         
         self.addChild(element)
     
@@ -165,11 +170,12 @@ class cBaseList(cBase):
                 for definition in self.byDefName:
                     txt += definition + "; "
                 txt += "**/\n"
-
+            n=0
             for c in sslice:
                 t1, t2 = c.type
-                txt += "%-17s" % ("%-8s/%-8s" % (t1[:8],t2[:8]))+ ">" + ". " * c.codedepth + str(c)
-                txt += "$\n"
+                n+=1
+                txt += "%-17s:%d" % ("%-8s/%-8s" % (t1[:8],t2[:8]),n)+ ">" + ". " * c.codedepth + str(c)
+                txt += "\t<%d:\n" % n
             return txt
 
 
@@ -186,11 +192,19 @@ class cBaseList(cBase):
         #        txt += str(child) + "\n"
         #        txt += "____"+ "\n"
         
-        
+        lastmargin = 0
         for c in sslice:
             t1, t2 = c.type
-            txt += "    " * c.codedepth + str(c).replace("\n","\n    ")
-            txt += "\n"
+            line = "    " + str(c).replace("\n","\n    ")
+            linecount = line.count("\n")
+            margin = 0
+            if linecount>2: margin += 1
+            if linecount>25: margin += 1
+            if linecount>50: margin += 1
+            topmargin = margin - lastmargin
+            if topmargin < 0: topmargin = 0
+            txt += "\n" * topmargin + line + "\n" * (margin+1)
+            lastmargin = margin
         return txt
         
             
@@ -207,7 +221,7 @@ class cBaseListInline(cBaseList):
             if debug>=3:
                 txt += "[%s/%s: " % c.type 
         
-            txt += str(c).replace("\n","\n" + "  " * c.codedepth)
+            txt += str(c)
             if debug>=3:
                 txt += "]"
             
