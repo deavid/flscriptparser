@@ -294,6 +294,13 @@ def p_funccall_1(p):
         p[0]+=str(n)
     p[0]=cBaseItem(p[0])    
     p[0].setSubtype("FuncCall")
+    p[0].name = p[1]
+
+    if p.slice[3].type == "callargs":
+        p[0].arglist = p[3]
+    else:
+        p[0].arglist = cBaseListInline()
+        
     
 
 
@@ -697,12 +704,22 @@ else:
 
 
 
-print prog
+#print prog
 
-for varName in prog.byDefName:
-    var = prog.byDefName[varName]
-    print "%-15s / %-15s > " % var.type  , varName
+#for varName in prog.byDefName:
+#    var = prog.byDefName[varName]
+#    print "%-15s / %-15s > " % var.type  , varName
         
+
+import tests.ifaceclass 
+if tests.ifaceclass.do_test(prog):
+    print "Test passed."
+else:
+    print "Test failed!"
+
+print
+
+
 
 
 
