@@ -26,6 +26,7 @@ class cBaseItem(cBase):
         self.value = value
 
     def __str__(self):
+        if debug > 0 and debug < 1 and self.type == ("Item","Unknown"): return "*" + str(self.value) + "?"
         return str(self.value)
 
 class cBaseItemList(cBase):
@@ -123,11 +124,17 @@ class cBaseList(cBase):
             print repr(child)
             raise NameError, "Base Class doesn't have `addCodeDepth` function."
 
-        if ctype == "ItemList":
-            for item in child.itemList.slice:
+        if isinstance(child,cBaseItemList):
+            sslice = child.itemList.slice[:]
+            for e in child.itemList.hidden:
+                sslice.remove(e)
+            
+            
+            for item in sslice:
                 itype, isubtype = item.type
-                if itype != "ItemList":
-                    self.addChild(item, hidden = True)
+                if not isinstance(item,cBaseItemList):
+                    self.includeItem(item)
+                    #self.hidden.append(item)
     
     def addCodeDepth(self):
         cBase.addCodeDepth(self)
@@ -162,7 +169,7 @@ class cBaseList(cBase):
             sslice.remove(e)
 
 
-        if debug:
+        if debug>=1:
             txt = "\n"
             # --------- DEBUG OUTPUT VARDECL --------- 
             if len(self.byDefName)>0:

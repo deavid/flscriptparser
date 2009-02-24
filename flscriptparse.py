@@ -124,6 +124,8 @@ def p_statement(p):
                 | trycatch
     '''
     p[0] = p[1]
+    #if isinstance(p[0],cBase):
+    #    p[0].setSubtype("Statement")
 
 
 def p_statement_list1(p):
@@ -146,7 +148,8 @@ def p_statement_list3(p):
     '''
     statement_list      : LBRACE statement_list RBRACE
     '''
-    p[0]=[p[2]]
+    p[0]=cStatementList()
+    p[0].addAuto(p[1])
     
     
 
@@ -492,11 +495,10 @@ def p_statement_block(p):
     statement_block : statement
                     | LBRACE statement_list RBRACE
     '''
-    if len(p.slice)>2: 
-        p[0] = p[2]
-    else:
-        p[0] = cStatementList()
-        p[0].addAuto(p[1])
+    p[0] = cBaseListInline(separator=" ")
+    for n in p[1:]:
+        if n: p[0].addAuto(n)
+    p[0].setType("Block%d" % len(p[0].slice))
 
 def p_optelse(p):
     '''
@@ -505,7 +507,9 @@ def p_optelse(p):
     '''
     p[0] = []
     if len(p.slice)>2 and p[2]:
-        p[0]=p[2]
+        p[0] = cBaseListInline(separator=" ")
+        for n in p[1:]:
+            if n: p[0].addAuto(n)
     
 
 def p_cmp_symbol(p):
@@ -536,19 +540,10 @@ def p_ifstatement(p):
     '''
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
     '''
-    p[0] = "if (%s) " % str(p[3])
-
-    if p[5]: 
-        p[0] += "{"
-        p[0] += str(p[5])
-        p[0] += "}"
+    p[0] = cBaseListInline(separator=" ")
+    for n in p[1:]:
+        if n: p[0].addAuto(n)
         
-    else: p[0] += "{}"
-
-    if p[6]: 
-        p[0] += "\nelse {"
-        p[0] += str(p[6])
-        p[0] += "}"
         
     
 
@@ -703,7 +698,10 @@ else:
 
 
 print prog
-    
+
+for varName in prog.byDefName:
+    var = prog.byDefName[varName]
+    print "%-15s / %-15s > " % var.type  , varName
         
 
 
