@@ -42,18 +42,25 @@ do
   fi
   echo -n "$DIR Parsing $NAME . . . "
   ERRORCOUNT="0"
+  WARNINGCOUNT="0"
   python "$APPDIR/flscriptparse.py" $file 2>/tmp/errorlog.txt >$LOGFILE || (cat /tmp/errorlog.txt; echo "FATAL ERROR: Can't execute the parser."; ERRORCOUNT="1";)
   if [ "$ERRORCOUNT" = "0" ]; then
     ERRORCOUNT=`grep "#ERROR#" $LOGFILE | wc -l`
+  fi
+  if [ "$WARNINGCOUNT" = "0" ]; then
+    WARNINGCOUNT=`grep "#WARNING#" $LOGFILE | wc -l`
   fi
   
   TOTALFILES+="$file
 "
   if [ "$ERRORCOUNT" = "0" ]; then
-    echo "done."
+    echo "$WARNINGCOUNT Warnings."
+    grep "#WARNING#" $LOGFILE
     OKFILES+="$file
 "
-    cat $LOGFILE
+    if [ "$file" = "$PARSE_FILES" ]; then
+        cat $LOGFILE
+    fi
     unlink $LOGFILE
   else
       if [ "$ERRORCOUNT" = "1" ]; then

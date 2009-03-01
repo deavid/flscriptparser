@@ -114,8 +114,9 @@ class cBaseList(cBase):
             except:
                 raise NameError, "Declaration Class doesn't have `name` atribute."
             
-            if hasattr(self.byDefName,cname):
+            if cname in self.byDefName:
                 print "#WARNING# Variable %s found, but previously defined in this block"  % cname
+                # self.byDefName[cname]=None
             else:
                 self.byDefName[cname]=child
         try:
@@ -298,6 +299,8 @@ class cClassDecl(cBaseDecl):
         cBaseDecl.__init__(self,name=name)
         self.type = ("Declaration","Class")
         self.extends = extends
+        self.childclasses = None
+        self.constructor = None
         if not isinstance(source,cBaseList):
             iList = cBaseList()
             iList.addAuto(source)
