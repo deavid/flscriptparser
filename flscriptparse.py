@@ -47,8 +47,15 @@ def p_baseexpression(p):
                         | base_expression mathoperator base_expression
                         | base_expression boolcmp_symbol base_expression
                         | base_expression cmp_symbol base_expression
+                        | storeinstructionbasic cmp_symbol base_expression
+                        | base_expression cmp_symbol storeinstructionbasic
                         | LPAREN base_expression RPAREN
                         | LNOT base_expression
+                        | MINUS base_expression
+                        | PLUS base_expression
+                        | NEW funccall_1
+                        | NEW ID
+                        | base_expression CONDITIONAL1 base_expression COLON base_expression
     '''
     p[0] = cBaseListInline(separator = " ")
     for val in p[1:]:
@@ -59,8 +66,6 @@ def p_baseexpression(p):
 def p_expression(p):
     '''
     expression  : base_expression
-                | NEW funccall_1
-                | NEW ID
                 | error
     '''
     if p.slice[1].type == "base_expression":
@@ -422,16 +427,31 @@ def p_inlinestoreinstruction(p):
                             | MINUSMINUS variable 
     '''
     p[0] = str(p[1]) + str(p[2])
+
+def p_storeequalinstruction(p):
+    '''
+        storeequalinstruction   : variable EQUALS expression 
+                                | variable EQUALS storeequalinstruction
+
+    '''
+
+def p_storeinstructionbasic(p):
+    '''
+        storeinstructionbasic   : storeequalinstruction
+                                | inlinestoreinstruction
+            
+    '''
+
     
 def p_storeinstruction(p):
     '''
-        storeinstruction    : variable EQUALS expression 
+        storeinstruction    : inlinestoreinstruction
+                            | storeequalinstruction
                             | variable PLUSEQUAL expression
                             | variable MINUSEQUAL expression
                             | variable MODEQUAL expression
                             | variable DIVEQUAL expression
                             | variable TIMESEQUAL expression
-                            | inlinestoreinstruction
                             | DELETE variable
             
     '''
@@ -536,8 +556,6 @@ def p_constant(p):
                 | CCONST
                 | SCONST
                 | list_constant
-                | MINUS ICONST
-                | MINUS FCONST
                 | error
               
               '''

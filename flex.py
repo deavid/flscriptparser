@@ -26,7 +26,8 @@ tokens = reserved + (
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
-    'OR', 'AND', 
+    'OR', 'AND',  
+    'CONDITIONAL1',
     #'NOT', 
     'XOR', 'LSHIFT', 'RSHIFT',
     'LOR', 'LAND', 'LNOT',
@@ -87,6 +88,7 @@ t_LE               = r'<='
 t_GE               = r'>='
 t_EQ               = r'=='
 t_NE               = r'!='
+t_CONDITIONAL1      = r'\?'
 
 # Assignment operators
 
