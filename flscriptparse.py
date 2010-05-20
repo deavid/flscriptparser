@@ -155,7 +155,6 @@ def p_basicsource(p):
 def p_statement(p):
     '''
     statement   : instruction
-                | variable SEMI
                 | vardeclaration
                 | ifstatement
                 | whilestatement
@@ -476,13 +475,15 @@ def p_flowinstruction(p):
 
 def p_instruction(p):
     '''
-    instruction : storeinstruction SEMI
-                | funccall SEMI
-                | flowinstruction SEMI
+    instruction : base_instruction SEMI
                 | SEMI
-    instruction : storeinstruction 
+                | base_instruction 
+    base_instruction : storeinstruction
                 | funccall 
                 | flowinstruction 
+                | variable
+                | variable PLUSPLUS
+                | variable MINUSMINUS
     '''
     if p.slice[1].type == "SEMI": return
 
@@ -555,6 +556,7 @@ def p_constant(p):
                 | FCONST
                 | CCONST
                 | SCONST
+                | RXCONST
                 | list_constant
                 | error
               
