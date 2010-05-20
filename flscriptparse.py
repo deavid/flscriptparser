@@ -31,18 +31,13 @@ precedence = (
 
 )
 
-def p_exprval(p):
+def p_parse(token):
     '''
     exprval : constant
             | variable
             | funccall
             | error
-    '''
-    p[0] = p[1]
 
-
-def p_baseexpression(p):
-    '''
     base_expression     : exprval
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
@@ -54,106 +49,38 @@ def p_baseexpression(p):
                         | NEW funccall_1
                         | NEW ID
                         | base_expression CONDITIONAL1 base_expression COLON base_expression
-    '''
-    p[0] = cBaseListInline(separator = " ")
-    for val in p[1:]:
-        p[0].addAuto(val)
-    p[0].setSubtype("Expression")
 
-
-def p_expression(p):
-    '''
     expression  : base_expression
                 | error
-    '''
-    if p.slice[1].type == "base_expression":
-        p[0] = p[1]
-    else:
-        p[0] = cBaseListInline(separator = " ")
-        for val in p[1:]:
-            p[0].addAuto(val)
-        p[0].setSubtype("Expression")
-    
 
-def p_case_cblock_list(p):
-    '''
     case_cblock_list  :  case_block  
     case_cblock_list  :  case_cblock_list case_block  
-    '''
-    p[0] = p[1:]
 
-def p_case_block(p):
-    '''
     case_block  :  CASE base_expression COLON statement_list 
-    '''
-    p[0] = p[1:]
 
-def p_id_or_constant(p):
-    '''
     id_or_constant  : variable
                     | constant
-    '''
-    p[0] = p[1]
-    
-    
-def p_case_default(p):
-    '''
-    case_default    :  DEFAULT COLON statement_list
-    '''
-    p[0] = p[1:]
 
-def p_case_block_list(p):
-    '''
+    case_default    :  DEFAULT COLON statement_list
+
     case_block_list  :  empty
     case_block_list  :  case_default
     case_block_list  :  case_cblock_list 
     case_block_list  :  case_cblock_list case_default
-    '''
-    p[0] = p[1:]
-    
 
-def p_source_element(p):
-    '''
     source_element  : docstring
                     | vardeclaration
                     | classdeclaration
                     | funcdeclaration
-    '''
-    p[0]=p[1]
 
-
-def p_source(p):
-    '''
     source  : source_element
     source  : source source_element
             | statement_list
     
-    '''
-    if len(p.slice)==2:
-        p[0]= cBaseList()
-        val = p[1]
-    else:
-        p[0]= p[1]
-        val = p[2]
-    
-    p[0].addAuto(val)
 
-
-    
-
-
-def p_basicsource(p):
-    '''
     basicsource     : statement_list
                     | empty
-    '''
-    p[0]=p[1]
-    
 
-   
-
-def p_statement(p):
-    '''
     statement   : instruction
                 | vardeclaration
                 | ifstatement
@@ -162,220 +89,61 @@ def p_statement(p):
                 | forstatement
                 | switch
                 | trycatch
-    '''
-    p[0] = p[1]
-    #if isinstance(p[0],cBase):
-    #    p[0].setSubtype("Statement")
 
-
-def p_statement_list1(p):
-    '''
     statement_list      : statement_list statement
-    '''
-    p[0]=p[1]
-    p[0].addAuto(p[2])
 
-
-def p_statement_list2(p):
-    '''
     statement_list      : statement 
-    '''
-    
-    p[0]=cStatementList()
-    p[0].addAuto(p[1])
 
-def p_statement_list3(p):
-    '''
     statement_list      : LBRACE statement_list RBRACE
-    '''
-    p[0]=cStatementList()
-    p[0].addAuto(p[1])
-    
-def p_statement_list4(p):
-    '''
+
     statement_list      : LBRACE RBRACE
     statement_list      : empty
-    '''
-    
 
-
-
-def p_optvartype(p):
-    '''
     optvartype  : COLON ID
                 | empty
-    '''
-    if len(p.slice) == 1: p[0] = None
-    if len(p.slice) >  2: p[0] = p[2]
-    
 
-def p_vardeclaration(p):
-    '''
     vardeclaration  :  VAR vardecl_list SEMI
                     |  CONST vardecl_list SEMI
     vardeclaration  :  VAR vardecl_list 
                     |  CONST vardecl_list 
-    '''
-    if len(p.slice) == 4:
-        p[0] = cBaseItemList(itemList=p[2],prefix=p[1]+" ",suffix=";",subtype="Declaration")
-    else:
-        p[0] = cBaseItemList(itemList=p[2],prefix=p[1]+" ",suffix="",subtype="Declaration")
 
-    
-def p_vardeclaration_2(v):
-    '''
     vardecl  :  ID optvartype EQUALS expression 
     vardecl  :  ID optvartype
-    '''
-    if len(v.slice)>3:
-        val = v[4] 
-    else:
-        val = None
-    
-    v[0] = cBaseVarSpec(name=v[1],vartype=v[2],value=val)
-    
-    
 
-def p_vardecl_list(p):
-    '''
     vardecl_list    : vardecl
                     | vardecl_list COMMA vardecl
-    '''
-    if len(p.slice) == 2: 
-        p[0] = cBaseListInline()
-        p[0].setSubtype("Variable")
-        p[0].addAuto(p[1])
-    if len(p.slice) == 4: 
-        p[0] = p[1]
-        p[0].addAuto(p[3])
-        
-def p_arglist(p):
-    '''
+
     arglist : vardecl_list
             |
-    '''
-    if len(p.slice) == 1: p[0] = cBaseListInline()
-    else:  p[0] = p[1]
-    
-    
-def p_funcdeclaration(p):
-    '''
+
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
-    '''
-    p[0] = cFuncDecl(name=p[2],arglist=p[4],rettype=p[6],source=p[8])
-    """
-    p[0] = "function %s (%s) : %s " % (p[2],p[4],p[6])
-    if p[8]:
-        p[0] += "{\n"
-        for ln in p[8]:
-            p[0] += str(ln) + "\n"
-        p[0] += "\n}"
-        
-    else: p[0] += "{}"
-    """
-    
-def p_callarg(p):
-    '''
+
     callarg     : expression
-    '''
-    p[0] = p[1]
-    
-def p_callargs(p):
-    '''
+
     callargs    : callarg
                 | callargs COMMA callarg
                 | empty
-    '''
-    if len(p.slice) == 1: p[0] = cBaseListInline()
-    if len(p.slice) == 2: 
-        p[0] = cBaseListInline()
-        p[0].addAuto(p[1])
-        
-    if len(p.slice) == 4: 
-        p[0] = p[1]
-        p[0].addAuto(p[3])
 
-def p_member_aux(p):
-    '''
     varmemcall  : variable_1
                 | funccall_1
                 | member_call
                 | member_var
                 | base_expression 
-    '''
-    if len(p.slice) == 2: 
-        p[0] = p[1]
-    else:
-        p[0] = p[2]
-    
-    
 
-def p_member_var(p):
-    '''
     member_var  : varmemcall PERIOD variable_1
     member_call : LPAREN member_var RPAREN PERIOD funccall_1
-    '''
-    if p.slice[1].type == "LPAREN":
-        p[0] = cBaseListInline(separator=".")
-        p[0].addAuto(p[2])
-        p[0].addAuto(p[5])
-        p[0].setSubtype("MemberVar")
-    else:    
-        p[0] = cBaseListInline(separator=".")
-        p[0].addAuto(p[1])
-        p[0].addAuto(p[3])
-        p[0].setSubtype("MemberVar")
-    
-def p_member_call(p):
-    '''
+
     member_call : varmemcall PERIOD funccall_1
     member_call : LPAREN member_call RPAREN PERIOD funccall_1
-    '''
-    if p.slice[1].type == "LPAREN":
-        p[0] = cBaseListInline(separator=".")
-        p[0].addAuto(p[2])
-        p[0].addAuto(p[5])
-        p[0].setSubtype("MemberCall")
-    else:
-        p[0] = cBaseListInline(separator=".")
-        p[0].addAuto(p[1])
-        p[0].addAuto(p[3])
-        p[0].setSubtype("MemberCall")
-    
-def p_funccall(p):
-    '''
+
     funccall    : funccall_1
                 | member_call
                 | LPAREN member_call RPAREN
                 | LPAREN funccall_1 RPAREN
-    '''
-    if len(p.slice) > 2:
-        p[0] = p[2]
-    else:
-        p[0] = p[1]
-    
-def p_funccall_1(p):
-    '''
+
     funccall_1  : ID LPAREN callargs RPAREN
                 | ID LPAREN RPAREN
-    '''
-    p[0]=""
-    for n in p[1:]:
-        p[0]+=str(n)
-    p[0]=cBaseItem(p[0])    
-    p[0].setSubtype("FuncCall")
-    p[0].name = p[1]
 
-    if p.slice[3].type == "callargs":
-        p[0].arglist = p[3]
-    else:
-        p[0].arglist = cBaseListInline()
-        
-    
-
-
-def p_mathoperator(p):
-    '''
     mathoperator    : PLUS
                     | MINUS
                     | TIMES
@@ -386,64 +154,30 @@ def p_mathoperator(p):
                     | LSHIFT
                     | RSHIFT
                     | AND
-    '''
-    p[0] = p[1]
 
-
-def p_variable(p):
-    '''
     variable    : variable_1
                 | member_var
                 | LPAREN variable_1 RPAREN 
                 | LPAREN member_var RPAREN
-    '''    
-    p[0] = p[1]
-    if len(p.slice) == 4:
-        p[0] = p[2]
-    
 
-def p_variable_1(p):
-    '''
     variable_1  : ID 
                 | inlinestoreinstruction
                 | variable_1 LBRACKET base_expression RBRACKET
                 | funccall_1 LBRACKET base_expression RBRACKET
-    '''
-    if len(p.slice) == 2:
-        p[0] = cBaseItem(p[1])
-    else:
-        p[0] = cBaseListInline(separator = "")
-        for val in p[1:]:
-            p[0].addAuto(val)
-    
-    p[0].setSubtype("Variable")
-    
-def p_inlinestoreinstruction(p):
-    '''
+
     inlinestoreinstruction  : PLUSPLUS ID 
                             | MINUSMINUS ID 
                             | ID PLUSPLUS 
                             | ID MINUSMINUS 
-    '''
-    p[0] = str(p[1]) + str(p[2])
 
-def p_storeequalinstruction(p):
-    '''
         storeequalinstruction   : variable EQUALS expression 
                                 | variable EQUALS storeequalinstruction
 
-    '''
 
-def p_storeinstructionbasic(p):
-    '''
         storeinstructionbasic   : storeequalinstruction
                                 | inlinestoreinstruction
             
-    '''
 
-    
-def p_storeinstruction(p):
-    '''
         storeinstruction    : inlinestoreinstruction
                             | storeequalinstruction
                             | variable PLUSEQUAL expression
@@ -453,28 +187,13 @@ def p_storeinstruction(p):
                             | variable TIMESEQUAL expression
                             | DELETE variable
             
-    '''
-    p[0] = cBaseListInline(separator = " ")
-    for val in p[1:]:
-        p[0].addAuto(val)
-    p[0].setSubtype("Store")
 
-def p_flowinstruction(p):
-    '''
     flowinstruction : RETURN expression 
                     | THROW expression 
                     | RETURN 
                     | BREAK 
                     | CONTINUE 
-    '''
-    if len(p.slice)==3:
-        p[0]=cBaseItem(value="%s %s" % (p[1],p[2]))
-    
-    if len(p.slice)==2:
-        p[0]=cBaseItem(value=p[1])
 
-def p_instruction(p):
-    '''
     instruction : base_instruction SEMI
                 | SEMI
                 | base_instruction 
@@ -484,75 +203,26 @@ def p_instruction(p):
                 | variable
                 | variable PLUSPLUS
                 | variable MINUSMINUS
-    '''
-    if p.slice[1].type == "SEMI": return
 
-    if len(p.slice)==2: p_suffix = "" 
-    else: p_suffix = ";" 
-
-    p[0]=cBaseItemList(itemList=p[1],prefix="",suffix=p_suffix,subtype="Instruction")
-
-
-def p_optextends(p):
-    '''
     optextends  : EXTENDS ID
                 | empty
-    '''
-    if len(p.slice) == 1: p[0] = None
-    if len(p.slice) == 3: p[0] = p[2]
-   
-    
-    
-def p_classdeclaration(p):
-    '''
+
     classdeclaration   : CLASS ID optextends LBRACE classdeclarationsource RBRACE
-    '''
-    p[0] = cClassDecl(name=p[2],extends=p[3],source=p[5])
-    
-    
-def p_classdeclarationsource1(p):
-    '''
+
     classdeclarationsource  : vardeclaration
                             | funcdeclaration
                             | classdeclarationsource vardeclaration
                             | classdeclarationsource funcdeclaration
                             | SEMI
                             | classdeclarationsource SEMI
-    '''
-    if len(p.slice)==2:
-        p[0] = cBaseList()
-        added = p[1]
-    else:
-        p[0] = p[1]
-        added = p[2]
-     
-            
-    p[0].addAuto(added)
-        
 
-
-
-def p_docstring(p):
-    '''
     docstring   : DOCSTRINGOPEN AT ID COMMENTCLOSE
                 | DOCSTRINGOPEN AT ID ID COMMENTCLOSE
-    '''
-    var = None
-    if p.slice[4].type == "ID":
-        var = p[4]
-    
-    p[0]=(p[3],var)    
 
-def p_list_constant(p):
-    '''
     list_constant   : LBRACKET callargs RBRACKET
     list_constant   : LBRACKET callargs COMMA RBRACKET
-    '''
-    p[0] = p[1:]
-    
-# constant:
-def p_constant(p): 
-    '''constant : ICONST
+
+    constant : ICONST
                 | FCONST
                 | CCONST
                 | SCONST
@@ -560,117 +230,52 @@ def p_constant(p):
                 | list_constant
                 | error
               
-              '''
-    p[0] = cBaseItem(p[1])
 
-def p_statement_block(p):
-    '''
     statement_block : statement
                     | LBRACE statement_list RBRACE
-    '''
-    p[0] = cBaseListInline(separator=" ")
-    for n in p[1:]:
-        if n: p[0].addAuto(n)
-    p[0].setType("Block%d" % len(p[0].slice))
 
-def p_optelse(p):
-    '''
     optelse : ELSE statement_block
             | empty
-    '''
-    p[0] = []
-    if len(p.slice)>2 and p[2]:
-        p[0] = cBaseListInline(separator=" ")
-        for n in p[1:]:
-            if n: p[0].addAuto(n)
-    
 
-def p_cmp_symbol(p):
-    '''
     cmp_symbol  : LT
                 | LE
                 | GT
                 | GE
                 | EQ
                 | NE
-    '''
-    p[0] = p[1]
 
-def p_boolcmp_symbol(p):
-    '''
     boolcmp_symbol  : LOR
                     | LAND
-    '''
-    p[0] = p[1]
 
-def p_condition(p):
-    '''
     condition   : expression 
-    '''
-    p[0] = p[1]
 
-def p_ifstatement(p):
-    '''
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
-    '''
-    p[0] = cBaseListInline(separator=" ")
-    for n in p[1:]:
-        if n: p[0].addAuto(n)
-        
-        
-    
 
-def p_whilestatement(p):
-    '''
     whilestatement  : WHILE LPAREN condition RPAREN statement_block 
     whilestatement  : DO statement_block WHILE LPAREN condition RPAREN SEMI
                     | error
-                    
-    '''
-    p[0] = p[1:]
 
-def p_withstatement(p):
-    '''
     withstatement   : WITH LPAREN variable RPAREN statement_block 
                     | error
-    '''
-    p[0] = p[1:]
 
-def p_forstatement(p):
-    '''
     forstatement    : FOR LPAREN storeinstruction SEMI base_expression SEMI storeinstruction RPAREN statement_block 
     forstatement    : FOR LPAREN VAR vardecl SEMI base_expression SEMI storeinstruction RPAREN statement_block 
                     | FOR LPAREN SEMI base_expression SEMI storeinstruction RPAREN statement_block 
                     | error
-    '''
-    p[0] = p[1:]
 
-
-
-def p_switch(p):
-    '''
     switch  : SWITCH LPAREN expression RPAREN LBRACE case_block_list RBRACE
-    '''
-    p[0] = p[1:]
-    
-def p_optid(p):
-    '''
+
     optid   : ID
             | empty
-    '''
-    p[0] = p[1:]
-    
-def p_trycatch(p):
-    '''
+
     trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE statement_list RBRACE
     trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE RBRACE
+
+    empty : 
     '''
-    p[0] = p[1:]
-
-
-def p_empty(t):
-    'empty : '
-    t[0] = []
+    lexspan = list(token.lexspan(0))
+    data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
+    token[0] = [lexspan,data] + [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] 
 
 
 error_count = 0
@@ -690,6 +295,7 @@ def p_error(t):
             print_context(t)
         except:
             pass
+        print "ERROR"
         import sys
         sys.exit()
     #while 1:
@@ -745,13 +351,29 @@ def my_tokenfunc(*args, **kwargs):
     return ret
 
 
+def print_tokentree(token, depth = 0):
+    print "  " * depth, token.__class__ , "=" , token
+    
+    if str(token.__class__) == "ply.yacc.YaccProduction":
+        print token.lexer
+        for tk in token.slice:    
+            if tk.value == token: continue
+            print "  " * (depth+1), tk.type, 
+            try:
+                print tk.lexpos, 
+                print tk.endlexpos,
+            except:
+                pass
+            print 
+            
+            print_tokentree(tk.value, depth +1)
 
 
 def parse(data):
     global input_data
     parser.error = 0
     input_data = data
-    p = parser.parse(data, debug = 0, tracking = 0, tokenfunc = my_tokenfunc)
+    p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
     if parser.error: return None
     return p
 
@@ -773,9 +395,13 @@ else:
 
     prog = parse(line)     
 
+import yaml
 
+print yaml.dump(prog)
 
-print prog
+#print_tokentree(prog)
+
+    
 
 
 #for varName in prog.byDefName:
@@ -783,8 +409,8 @@ print prog
 #    print "%-15s / %-15s > " % var.type  , varName
         
 
-import tests.ifaceclass 
-tests.ifaceclass.do_test(prog)
+#import tests.ifaceclass 
+#tests.ifaceclass.do_test(prog)
 
 
 
