@@ -7,7 +7,8 @@
 import sys
 import flex
 import ply.yacc as yacc
-
+import ply.lex as lex
+        
 from flclasses import *
 
 # Get the token map
@@ -35,7 +36,6 @@ def p_exprval(p):
     exprval : constant
             | variable
             | funccall
-            | inlinestoreinstruction
             | error
     '''
     p[0] = p[1]
@@ -45,10 +45,8 @@ def p_baseexpression(p):
     '''
     base_expression     : exprval
                         | base_expression mathoperator base_expression
-                        | base_expression boolcmp_symbol base_expression
                         | base_expression cmp_symbol base_expression
-                        | storeinstructionbasic cmp_symbol base_expression
-                        | base_expression cmp_symbol storeinstructionbasic
+                        | base_expression boolcmp_symbol base_expression
                         | LPAREN base_expression RPAREN
                         | LNOT base_expression
                         | MINUS base_expression
@@ -407,6 +405,7 @@ def p_variable(p):
 def p_variable_1(p):
     '''
     variable_1  : ID 
+                | inlinestoreinstruction
                 | variable_1 LBRACKET base_expression RBRACKET
                 | funccall_1 LBRACKET base_expression RBRACKET
     '''
@@ -421,10 +420,10 @@ def p_variable_1(p):
     
 def p_inlinestoreinstruction(p):
     '''
-    inlinestoreinstruction  : variable PLUSPLUS
-                            | PLUSPLUS variable 
-                            | variable MINUSMINUS
-                            | MINUSMINUS variable 
+    inlinestoreinstruction  : PLUSPLUS ID 
+                            | MINUSMINUS ID 
+                            | ID PLUSPLUS 
+                            | ID MINUSMINUS 
     '''
     p[0] = str(p[1]) + str(p[2])
 
@@ -713,7 +712,7 @@ def p_error(t):
 # Build the grammar
 
 
-parser = yacc.yacc(method='LALR',debug=False, 
+parser = yacc.yacc(method='LALR',debug=0, 
       optimize = 0, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
 
 #profile.run("yacc.yacc(method='LALR')")
@@ -736,6 +735,11 @@ def print_context(token):
     print
     
     
+def my_tokenfunc(*args, **kwargs):
+    #print "Call token:" ,args, kwargs
+    ret = lex.lexer.token(*args, **kwargs)    
+    #print "Return (",args, kwargs,") = " , ret
+    return ret
 
 
 
@@ -744,7 +748,7 @@ def parse(data):
     global input_data
     parser.error = 0
     input_data = data
-    p = parser.parse(data)
+    p = parser.parse(data, debug = 0, tracking = 0, tokenfunc = my_tokenfunc)
     if parser.error: return None
     return p
 
@@ -769,6 +773,7 @@ else:
 
 
 print prog
+
 
 #for varName in prog.byDefName:
 #    var = prog.byDefName[varName]
