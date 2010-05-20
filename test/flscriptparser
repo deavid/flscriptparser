@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 PARSE_FILES="$*"
 if [ "$1" = "--openwith" ]; then
     OPENWITH="$2"
