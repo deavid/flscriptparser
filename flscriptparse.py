@@ -155,6 +155,7 @@ def p_basicsource(p):
 def p_statement(p):
     '''
     statement   : instruction
+                | variable SEMI
                 | vardeclaration
                 | ifstatement
                 | whilestatement
