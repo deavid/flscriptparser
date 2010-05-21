@@ -10,7 +10,7 @@
 import ply.lex as lex
 
 # Reserved words
-reserved = (
+reserved = [
     'BREAK', 'CASE', 'CONST', 'CONTINUE', 'DEFAULT', 'DO',
     'ELSE', 'FOR', 'IF', 
     'RETURN', 
@@ -18,16 +18,17 @@ reserved = (
     'SWITCH', 
     'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
     'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE'
-    )
-
-tokens = reserved + (
+    ]
+token_literals = [
     # Literals (identifier, integer constant, float constant, string constant, char const)
-    'ID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'RXCONST', 'AT',
+    'ID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'RXCONST'
+]
+tokens = reserved + token_literals + [
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
     'OR', 'AND',  
-    'CONDITIONAL1',
+    'CONDITIONAL1','AT',
     #'NOT', 
     'XOR', 'LSHIFT', 'RSHIFT',
     'LOR', 'LAND', 'LNOT',
@@ -57,7 +58,7 @@ tokens = reserved + (
     'DOCSTRINGOPEN',
  #   'COMMENTOPEN',
     'COMMENTCLOSE',
-    )
+    ]
 
 # Completely ignored characters
 t_ignore           = ' \r\t\x0c'

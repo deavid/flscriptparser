@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 
 import sys, math
+import hashlib
 import flex
 import ply.yacc as yacc
 import ply.lex as lex
@@ -18,7 +19,8 @@ start = "source"
 reserv=['nonassoc']
 reserv+=list(flex.reserved)
 
-
+def cnvrt(val):
+    return str(val).replace('"','\\"')
 
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
@@ -368,7 +370,7 @@ def print_tokentree(token, depth = 0):
             
             print_tokentree(tk.value, depth +1)
 
-def calctree(obj, depth = 0, num = []):
+def calctree(obj, depth = 0, num = [], otype = "source"):
     #if depth > 5: return
     source_data = [
         'source',
@@ -380,12 +382,28 @@ def calctree(obj, depth = 0, num = []):
     ]
     final_obj = {}
     final_obj['range'] = obj['02-size'] 
-    has_data = False
+    has_data = 0
+    has_objects = 0
     contentlist = []
+    ctype_alias = {
+        "member_var" : "member",
+        "member_call" : "member",
+        "variable_1" : "variable",
+        "funccall_1" : "funccall",
+        "flowinstruction" : "instruction",
+        "storeequalinstruction" : "instruction",
+        "vardecl" : "vardeclaration",
+        #"vardecl_list" : "vardeclaration",
+        
+    }
+    if otype in ctype_alias:
+        otype = ctype_alias[otype]
     #print " " * depth , obj['02-size']
     for n,content in enumerate(obj['50-contents']):
         ctype = content['01-type']
         value = content['99-value']
+        if ctype in ctype_alias:
+            ctype = ctype_alias[ctype]
         #if ctype in source_data:
         #    if depth == 0: print "--"
         #    print_tree(value,depth,num)
@@ -394,26 +412,32 @@ def calctree(obj, depth = 0, num = []):
         
         if type(value) is dict:
             #print "*"
-            tree_obj = calctree(value,depth+1,num+[str(n)])
+            tree_obj = calctree(value,depth+1,num+[str(n)], ctype)
             if type(tree_obj) is dict:
-                if tree_obj['has_data']:
+                if tree_obj['has_data'] and ctype != otype:
                     contentlist.append([ctype,tree_obj])
+                    has_objects += 1
                 else:
                     contentlist+=tree_obj["content"]
+                    has_data += tree_obj["has_data"]
+                    has_objects += tree_obj["has_objects"]
         else:
             #print "=", repr(value)
             contentlist.append([ctype,value])
-            has_data = True
+            has_data += 1
 
     final_obj['content'] = contentlist
     final_obj['has_data'] = has_data
+    final_obj['has_objects'] = has_objects
     
     return final_obj
     
 
+hashes = []
 
-def printtree(tree, depth = 0):
-    sep = " "
+def printtree(tree, depth = 0, otype = "source"):
+    global hashes
+    sep = "    "
     marginblocks = {
         "classdeclaration" : 3,
         "funcdeclaration" : 2,
@@ -429,36 +453,85 @@ def printtree(tree, depth = 0):
     nuevalinea = False
     name = ""
     lines = []
+    
+        
+    
     for ctype, value in tree['content']:
         if nuevalinea and ctype in closingtokens:
             nuevalinea = False
         
         if nuevalinea: 
-            for i in range(math.ceil(l/2.0)): lines.append(sep * depth)
+            for i in range(int(math.ceil(l/2.0))): lines.append(sep * depth)
             nuevalinea = False
-        if type(value) is dict:
+            
+        if type(value) is dict and ctype == otype:
+            tname,tlines,trange = printtree(value, depth, ctype)
+            lines += tlines
+        elif type(value) is dict:
             l = 0
             if ctype in marginblocks: l = marginblocks[ctype]
                 
-            for i in range(math.floor(l/2.0)): lines.append(sep * depth)
-            tname,tlines = printtree(value, depth+1)
-            if tname and l:
-                lines.append(sep * depth + " >> " + ctype +  ": " + "(%s)" % tname)
+            for i in range(int(math.floor(l/2.0))): lines.append(sep * depth)
+            tname,tlines,trange = printtree(value, depth+1, ctype)
+            # lines.append(sep * depth + "<!-- %d -->" % (len("".join(tlines))))
+            
+            if value['has_data'] > 0 and value['has_objects'] == 0:
+                # Do it inline!
+                if value['has_data']==1 and tname:
+                    lines.append(sep * depth + "<%s id=\"%s\" />" % (ctype,tname))
+                else:
+                    txt = "".join([ x.strip() for x in tlines])
+                    lines.append(sep * depth + "<%s>%s</%s>" % (ctype,txt,ctype))
             else:
-                lines.append(sep * depth + ctype +  ":")
-            lines+=tlines
-            if tname and l:
-                lines.append(sep * depth + " << "  + ctype + "(%s)" % tname)
+                attrs = []
+                if tname:
+                    attrs.append(("id",tname))
                 
-            nuevalinea = True
+                txtinline = "".join([ line.strip() for line in tlines ])
+                    
+                #if len(tlines)>1:
+                txthash = hashlib.sha1(txtinline).hexdigest()[:16]
+                #hashes.append(("depth:",depth,"hash:",txthash,"element:",ctype+":"+tname)) 
+                hashes.append((txthash,ctype+":"+tname+"(%d)"% len(txtinline))) 
+                #,"start:",trange[0],"end:",trange[1]))
+                #attrs.append(("start",trange[0]))
+                #attrs.append(("end",trange[1]))
+                #attrs.append(("hash",txthash))
+                    
+                txtattrs=""
+                for name1, val1 in attrs:
+                    txtattrs+=" %s=\"%s\"" % (name1,cnvrt(val1))
+                    
+                lines.append(sep * depth + "<%s%s>" % (ctype,txtattrs))
+                if depth > 50:
+                    lines.append(sep * (depth+1) + "...")
+                else:
+                    if len(txtinline)<80:
+                        lines.append(sep * (depth+1) + txtinline)
+                    else:
+                        lines+=tlines
+                if txtattrs:
+                    txtattrs = "<!--%s -->" % txtattrs
+                lines.append(sep * depth + "</%s> %s" % (ctype, txtattrs))
+                    
+                nuevalinea = True
         else:
             if ctype == "ID" and name == "":
                 name = value
-            
-            lines.append(sep * depth +  ctype +  " = " + value)
+            if ctype in flex.token_literals:
+                lines.append(sep * depth +   "<%s value=\"%s\" />" % (ctype,cnvrt(value)))
+            else:
+                lines.append(sep * depth +  "<%s />" % (ctype))
+                
+        
     if depth == 0:
-        print "\n".join(lines)
-    return name, lines
+        #print "\n".join(lines)
+        for row in sorted(set(hashes)):
+            row = list(row)
+            row[0] = row[0][8:] + row[0][:8]
+            print "  ".join(row)
+            #print "  ".join([ str(x) for x in row])
+    return name, lines, tree['range']
         
 
 
