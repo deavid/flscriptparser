@@ -1,5 +1,6 @@
 #!/bin/sh
 PARSE_FILES="$*"
+
 if [ "$1" = "--openwith" ]; then
     OPENWITH="$2"
     PARSE_FILES=""
@@ -40,10 +41,10 @@ do
        continue;
     fi
   fi
-  echo -n "$DIR Parsing $NAME . . . "
+  echo -n "$DIR/$NAME (parsing) . . . "
   ERRORCOUNT="0"
   WARNINGCOUNT="0"
-  python "$APPDIR/flscriptparse.py" $file 2>/tmp/errorlog.txt >$LOGFILE || (cat /tmp/errorlog.txt; echo "FATAL ERROR: Can't execute the parser."; ERRORCOUNT="1";)
+  python "$APPDIR/flscriptparse.py" $file 2>/tmp/errorlog.txt >$LOGFILE || (cat $LOGFILE /tmp/errorlog.txt; echo "FATAL ERROR: Can't execute the parser."; ERRORCOUNT="1";)
   if [ "$ERRORCOUNT" = "0" ]; then
     ERRORCOUNT=`grep "#ERROR#" $LOGFILE | wc -l`
   fi

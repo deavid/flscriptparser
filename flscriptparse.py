@@ -4,7 +4,7 @@
 # Simple parser for FacturaLUX SCripting Language (QSA).  
 # -----------------------------------------------------------------------------
 
-import sys
+import sys, math
 import flex
 import ply.yacc as yacc
 import ply.lex as lex
@@ -275,7 +275,7 @@ def p_parse(token):
     '''
     lexspan = list(token.lexspan(0))
     data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
-    token[0] = [lexspan,data] + [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] 
+    token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
 
 
 error_count = 0
@@ -368,6 +368,99 @@ def print_tokentree(token, depth = 0):
             
             print_tokentree(tk.value, depth +1)
 
+def calctree(obj, depth = 0, num = []):
+    #if depth > 5: return
+    source_data = [
+        'source',
+        'source_element',
+        'statement_list',
+        'statement',
+        'classdeclarationsource',
+        'vardecl_list',
+    ]
+    final_obj = {}
+    final_obj['range'] = obj['02-size'] 
+    has_data = False
+    contentlist = []
+    #print " " * depth , obj['02-size']
+    for n,content in enumerate(obj['50-contents']):
+        ctype = content['01-type']
+        value = content['99-value']
+        #if ctype in source_data:
+        #    if depth == 0: print "--"
+        #    print_tree(value,depth,num)
+        #    continue
+        #print " " * depth , "%s:" % ".".join(num+[str(n)]), ctype,
+        
+        if type(value) is dict:
+            #print "*"
+            tree_obj = calctree(value,depth+1,num+[str(n)])
+            if type(tree_obj) is dict:
+                if tree_obj['has_data']:
+                    contentlist.append([ctype,tree_obj])
+                else:
+                    contentlist+=tree_obj["content"]
+        else:
+            #print "=", repr(value)
+            contentlist.append([ctype,value])
+            has_data = True
+
+    final_obj['content'] = contentlist
+    final_obj['has_data'] = has_data
+    
+    return final_obj
+    
+
+
+def printtree(tree, depth = 0):
+    sep = " "
+    marginblocks = {
+        "classdeclaration" : 3,
+        "funcdeclaration" : 2,
+        "statement_block" : 3,
+        "instruction" : 1,
+    }
+    closingtokens = [
+        "RBRACE",
+        "RPAREN",
+        "RBRACKET",
+        "SEMI",
+    ]
+    nuevalinea = False
+    name = ""
+    lines = []
+    for ctype, value in tree['content']:
+        if nuevalinea and ctype in closingtokens:
+            nuevalinea = False
+        
+        if nuevalinea: 
+            for i in range(math.ceil(l/2.0)): lines.append(sep * depth)
+            nuevalinea = False
+        if type(value) is dict:
+            l = 0
+            if ctype in marginblocks: l = marginblocks[ctype]
+                
+            for i in range(math.floor(l/2.0)): lines.append(sep * depth)
+            tname,tlines = printtree(value, depth+1)
+            if tname and l:
+                lines.append(sep * depth + " >> " + ctype +  ": " + "(%s)" % tname)
+            else:
+                lines.append(sep * depth + ctype +  ":")
+            lines+=tlines
+            if tname and l:
+                lines.append(sep * depth + " << "  + ctype + "(%s)" % tname)
+                
+            nuevalinea = True
+        else:
+            if ctype == "ID" and name == "":
+                name = value
+            
+            lines.append(sep * depth +  ctype +  " = " + value)
+    if depth == 0:
+        print "\n".join(lines)
+    return name, lines
+        
+
 
 def parse(data):
     global input_data
@@ -395,10 +488,14 @@ else:
 
     prog = parse(line)     
 
+tree_data = calctree(prog)
+printtree( tree_data)
+
+"""
 import yaml
 
-print yaml.dump(prog)
-
+print yaml.dump(tree_data)
+"""
 #print_tokentree(prog)
 
     
