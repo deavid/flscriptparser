@@ -434,9 +434,9 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
     
 
 hashes = []
-
+ranges = []
 def printtree(tree, depth = 0, otype = "source"):
-    global hashes
+    global hashes, ranges
     sep = "    "
     marginblocks = {
         "classdeclaration" : 3,
@@ -493,6 +493,7 @@ def printtree(tree, depth = 0, otype = "source"):
                 txthash = hashlib.sha1(txtinline).hexdigest()[:16]
                 #hashes.append(("depth:",depth,"hash:",txthash,"element:",ctype+":"+tname)) 
                 hashes.append((txthash,ctype+":"+tname+"(%d)"% len(txtinline))) 
+                ranges.append([depth,txthash]+trange+[ctype+":"+tname,len(txtinline)])
                 #,"start:",trange[0],"end:",trange[1]))
                 #attrs.append(("start",trange[0]))
                 #attrs.append(("end",trange[1]))
@@ -526,11 +527,15 @@ def printtree(tree, depth = 0, otype = "source"):
         
     if depth == 0:
         #print "\n".join(lines)
-        for row in sorted(set(hashes)):
+        for row in sorted(ranges):
+            print "\t".join([ str(x) for x in row])
+            
+        """for row in sorted(set(hashes)):
             row = list(row)
             row[0] = row[0][8:] + row[0][:8]
             print "  ".join(row)
             #print "  ".join([ str(x) for x in row])
+        """
     return name, lines, tree['range']
         
 
