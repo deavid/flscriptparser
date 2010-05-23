@@ -31,15 +31,108 @@ def main():
         for file1 in filenames:
             print "File:", file1
             pf = processedFile()
+            pf.filename = file1
             pf.table, pf.idxdepth,pf.idxtree, pf.hashes, pf.list_hashes = process(file1)
             pfiles.append(pf)
-        basehashes = pfiles[0].list_hashes
-        for pf in pfiles[1:]:
-            for key in basehashes:
-                if key not in pf.hashes:
-                    print "Lost:", pfiles[0].hashes[key] , "==>", "???"
-                else:
-                    print "Found:", pfiles[0].hashes[key] , "==>", pf.hashes[key]
+        pfA = pfiles[0]
+        for pfB in pfiles[1:]:
+            feq = FindEquivalences(pfA, pfB)
+
+class FindEquivalences:
+    def __init__(self,pfA, pfB, autoCompute = True):
+        self.equivalences = {}
+        self.max_known_eq = {}
+        self.pfA, self.pfB = pfA, pfB
+        if autoCompute: self.compute()
+        
+    def compute(self):
+        print "Finding equivalences between A (%s) -> B (%s):" % (
+                self.pfA.filename, 
+                self.pfB.filename
+                )
+    
+        for key in self.pfA.list_hashes:
+            if key in self.pfB.hashes:
+                lpkA = self.pfA.hashes[key]
+                lpkB = self.pfB.hashes[key]
+                self.addEquivalences(lpkA,lpkB)
+            #    print "Found:", self.pfA.hashes[key] , "==>", self.pfB.hashes[key]
+            #else:
+            #    print "Lost:", self.pfA.hashes[key] , "==>", "???"
+        
+        norepeat = (0,)
+        prevprint = None
+        for pkA in sorted(self.pfA.idxtree):
+            if len(pkA) > 3: continue
+            if pkA[:len(norepeat)] == norepeat: continue
+            if pkA not in self.equivalences: 
+                self.equivalences[pkA] = {}
+                if len(pkA) > 1 and prevprint is None: continue
+                if prevprint:
+                    if len(pkA) > len(prevprint) and prevprint[:-1] == pkA[:len(prevprint)-1]: continue
+                    elif pkA < len(prevprint): prevprint = None
+                    elif prevprint[:-1] != pkA[:len(prevprint)-1]: prevprint = None
+            
+            print pkA,":",
+            
+            for pkB, punt in self.equivalences[pkA].iteritems():
+                if punt > 0.96: 
+                    norepeat = pkA
+                if punt >= 0.1:
+                    print pkB, punt, ";",
+                    prevprint = pkA
+            print 
+            
+            """
+            for pkB, punt in self.equivalences[pkA].iteritems():
+                if punt > 0.96: 
+                    norepeat = pkA
+                    print ">>", ".".join(["%02d" % x for x in pkB])
+                    prevprint = pkA
+            """        
+
+    def getMaxKnown(self,pkA):
+        pkA = tuple(pkA)
+        if len(pkA) == 0: return 1.0, None
+        if pkA not in self.max_known_eq: return 0.0, None
+        pkB = self.max_known_eq[pkA]
+        eq_prob = self.equivalences[pkA][pkB] 
+        return eq_prob, pkB
+        
+        
+    def addEquivalences(self,lpkA,lpkB):
+        lstEquivalences = self.multiplyEquivalences(lpkA,lpkB)
+        base_probability = 1.0 / len(lstEquivalences)
+        if base_probability < 0.01: return
+
+        for pkA,pkB in lstEquivalences:
+            probability = base_probability
+            parentA = pkA[:-1]
+            parent_prob, parentB = self.getMaxKnown(parentA)
+            if parentB:
+                if parentB != pkB[:-1]: parent_prob = (1-parent_prob) / 2.0
+                probability *= parent_prob 
+                
+            parentB = pkB[:-1]
+            if probability < 0.01: continue
+            if pkA not in self.equivalences:
+                self.equivalences[pkA] = {}
+            if pkB in self.equivalences[pkA]:
+                print "DUPLICATE", pkA,pkB
+            self.equivalences[pkA][pkB] = probability
+            previousMax, prevPkB = self.getMaxKnown(pkA)
+            if probability > previousMax:
+                self.max_known_eq[pkA] = pkB
+            
+    
+    
+    def multiplyEquivalences(self,lpkA,lpkB):
+        leq = set([])
+        for pkA in lpkA:
+            for pkB in lpkB:
+                leq|=set([(pkA,pkB)])
+        return list(leq)
+        
 
 def process(filename):
     table, idxdepth,idxtree = load(filename)
@@ -59,7 +152,7 @@ def process(filename):
     for d,idx in treebydepth.iteritems():
         nitems = len(idx)
         if maxitems < nitems: maxitems = nitems
-        elif nitems < maxitems: break
+        elif nitems * 30 < maxitems: break
         print "Depth:", d, "(%d items)" % nitems
         maxd = d
         for k in idx:
