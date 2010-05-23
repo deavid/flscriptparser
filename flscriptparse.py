@@ -3,6 +3,7 @@
 #
 # Simple parser for FacturaLUX SCripting Language (QSA).  
 # -----------------------------------------------------------------------------
+from optparse import OptionParser
 
 import sys, math
 import hashlib
@@ -59,9 +60,6 @@ def p_parse(token):
     case_cblock_list  :  case_cblock_list case_block  
 
     case_block  :  CASE base_expression COLON statement_list 
-
-    id_or_constant  : variable
-                    | constant
 
     case_default    :  DEFAULT COLON statement_list
 
@@ -176,8 +174,6 @@ def p_parse(token):
                                 | variable EQUALS storeequalinstruction
 
 
-        storeinstructionbasic   : storeequalinstruction
-                                | inlinestoreinstruction
             
 
         storeinstruction    : inlinestoreinstruction
@@ -435,7 +431,7 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
 
 hashes = []
 ranges = []
-def printtree(tree, depth = 0, otype = "source"):
+def printtree(tree, depth = 0, otype = "source", mode = None):
     global hashes, ranges
     sep = "    "
     marginblocks = {
@@ -525,17 +521,14 @@ def printtree(tree, depth = 0, otype = "source"):
                 lines.append(sep * depth +  "<%s />" % (ctype))
                 
         
-    if depth == 0:
+    if mode == "hash":
         #print "\n".join(lines)
         for row in sorted(ranges):
             print "\t".join([ str(x) for x in row])
-            
-        """for row in sorted(set(hashes)):
-            row = list(row)
-            row[0] = row[0][8:] + row[0][:8]
-            print "  ".join(row)
-            #print "  ".join([ str(x) for x in row])
-        """
+    if mode == "xml":
+        for row in lines:
+            print row
+    
     return name, lines, tree['range']
         
 
@@ -548,47 +541,73 @@ def parse(data):
     if parser.error: return None
     return p
 
-prog = "$$$"
-if len(sys.argv) == 2:                               
-    data = open(sys.argv[1]).read()                  
-    prog = parse(data)                      
-    if not prog: raise SystemExit                    
-else:
+
+def main():
+    parser = OptionParser()
+    #parser.add_option("-f", "--file", dest="filename",
+    #                  help="write report to FILE", metavar="FILE")
+    parser.add_option("-O", "--output", dest="output", default = "xml",
+                          help="Set output TYPE: xml|hash", metavar="TYPE")
+    parser.add_option("-q", "--quiet",
+                    action="store_false", dest="verbose", default=True,
+                    help="don't print status messages to stdout")
+
+    parser.add_option("--optdebug",
+                    action="store_true", dest="optdebug", default=False,
+                    help="debug optparse module")
+
+    (options, args) = parser.parse_args()
+    if options.optdebug:
+        print options, args
+
+    prog = "$$$"
+    if len(args) > 0 :                               
+        data = open(args[0]).read()                  
+        prog = parse(data)                      
+        if not prog: raise SystemExit                    
+    else:
 
 
-    line = ""
-    while 1:
-        try:
-            line += raw_input("flscript> ")
-        except EOFError:                
-            break;
-        line += "\n"                    
+        line = ""
+        while 1:
+            try:
+                line += raw_input("flscript> ")
+            except EOFError:                
+                break;
+            line += "\n"                    
+        print
+        prog = parse(line)     
 
-    prog = parse(line)     
+    tree_data = calctree(prog)
+    if options.output == "hash":    
+        printtree(tree_data, mode = "hash")
+    elif options.output == "xml":
+        printtree(tree_data, mode = "xml")
+    else:
+        print "Unknown outputmode", options.output
 
-tree_data = calctree(prog)
-printtree( tree_data)
+    """
+    import yaml
 
-"""
-import yaml
+    print yaml.dump(tree_data)
+    """
+    #print_tokentree(prog)
 
-print yaml.dump(tree_data)
-"""
-#print_tokentree(prog)
 
+
+
+    #for varName in prog.byDefName:
+    #    var = prog.byDefName[varName]
+    #    print "%-15s / %-15s > " % var.type  , varName
     
 
-
-#for varName in prog.byDefName:
-#    var = prog.byDefName[varName]
-#    print "%-15s / %-15s > " % var.type  , varName
-        
-
-#import tests.ifaceclass 
-#tests.ifaceclass.do_test(prog)
+    #import tests.ifaceclass 
+    #tests.ifaceclass.do_test(prog)
 
 
 
 
 
 
+
+if __name__ == "__main__": main()
