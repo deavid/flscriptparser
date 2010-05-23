@@ -37,10 +37,17 @@ def main():
         pfA = pfiles[0]
         for pfB in pfiles[1:]:
             feq = FindEquivalences(pfA, pfB)
+def tree_parents(pk):
+    parents = []
+    while (len(pk)>0):
+        parents.append(pk)
+        pk = pk[:-1]
+    return parents
 
 class FindEquivalences:
     def __init__(self,pfA, pfB, autoCompute = True):
         self.equivalences = {}
+        self.parent_equivalences = {}
         self.max_known_eq = {}
         self.pfA, self.pfB = pfA, pfB
         if autoCompute: self.compute()
@@ -59,19 +66,76 @@ class FindEquivalences:
             #    print "Found:", self.pfA.hashes[key] , "==>", self.pfB.hashes[key]
             #else:
             #    print "Lost:", self.pfA.hashes[key] , "==>", "???"
-        
+
+        for pkA in self.pfA.idxtree:
+            parentA = pkA[:-1]
+            if pkA not in self.equivalences: 
+                self.equivalences[pkA] = {}
+            if parentA:
+                if parentA not in self.parent_equivalences: 
+                    self.parent_equivalences[parentA] = []
+                
+        for pkA in sorted(self.pfA.idxtree):
+            parentsA = tree_parents(pkA)        
+            for pkB, punt in self.equivalences[pkA].iteritems():
+                if len(pkA) != len(pkB): continue
+                parentsB = tree_parents(pkB)
+                parentsAB = zip(parentsA,parentsB)
+                for pA, pB in parentsAB:
+                    #lev = 2**(len(pkA) - len(pA))
+                    lev2_list = [ pC for pC in self.pfA.idxtree if len(pC) >= len(pA) and pC[:len(pA)] == pA ]
+                    lev2_plist = set([])
+                    for l in lev2_list:
+                        lev2_plist |= set(tree_parents(l)[1:])
+                    lev2 = len(set(lev2_list) - set(lev2_plist))
+                            
+                    pEq = (pB, float(punt)/lev2)
+                    if pA not in self.parent_equivalences: 
+                        self.parent_equivalences[pA] = []
+                    self.parent_equivalences[pA].append(pEq)
+ 
+        norepeat = (0,)
+        self.parent_equivalences2 = {}
+        for pA in sorted(self.parent_equivalences):
+            count = {}
+            if pA[:len(norepeat)] == norepeat: continue
+            for pB, punt in self.parent_equivalences[pA]:
+                if pB not in count: count[pB] = 0
+                count[pB] += punt
+            rcount = [] 
+            ppA = pA[:-1]
+            if ppA in self.parent_equivalences2:
+                ppB = self.parent_equivalences2[ppA]
+            else:
+                ppB = None
+                                
+            for key, punt in count.copy().iteritems():
+                if ppB and key[:-1] != ppB: continue  
+                if punt >= 0.01:
+                    rcount.append((round(punt*100),key))
+                    
+            if len(rcount):
+                punt, pB = max(rcount)
+                self.parent_equivalences2[pA] = pB
+                print "parent:", pA, "%d%%\t" % punt, pB, len(rcount) 
+                if punt > 60:
+                    norepeat = pA
+            else:        
+                print "parent:", pA, "0%\t  ???"
+                
+        """
         norepeat = (0,)
         prevprint = None
         for pkA in sorted(self.pfA.idxtree):
-            if len(pkA) > 3: continue
+            if len(pkA) > 1: continue
             if pkA[:len(norepeat)] == norepeat: continue
-            if pkA not in self.equivalences: 
-                self.equivalences[pkA] = {}
-                if len(pkA) > 1 and prevprint is None: continue
-                if prevprint:
-                    if len(pkA) > len(prevprint) and prevprint[:-1] == pkA[:len(prevprint)-1]: continue
-                    elif pkA < len(prevprint): prevprint = None
-                    elif prevprint[:-1] != pkA[:len(prevprint)-1]: prevprint = None
+            if len(self.equivalences[pkA])==0:
+                if len(pkA) > 1:
+                    if prevprint is None: continue
+                    else:
+                        if len(pkA) > len(prevprint) and prevprint[:-1] == pkA[:len(prevprint)-1]: continue
+                        elif pkA < len(prevprint): prevprint = None
+                        elif prevprint[:-1] != pkA[:len(prevprint)-1]: prevprint = None
             
             print pkA,":",
             
@@ -82,8 +146,8 @@ class FindEquivalences:
                     print pkB, punt, ";",
                     prevprint = pkA
             print 
-            
-            """
+        """    
+        """
             for pkB, punt in self.equivalences[pkA].iteritems():
                 if punt > 0.96: 
                     norepeat = pkA
@@ -232,12 +296,12 @@ def load(filename):
                     offset = isinside(ppk,pk)
                     np += offset
                     if offset: n = 1
-                    if it > 10:
+                    if it > 100:
                         print it,n,pk,np, ppk, offset
                         if offset < 0:
                             print list(enumerate(bydepth[pdepth]))
                             assert(offset >= 0)
-                        assert(it < 25)
+                        assert(it < 250)
                 
                 prow = rows[ppk]
                 nparent = prow["tree_id"]
