@@ -82,12 +82,17 @@ class FindEquivalences:
                 parentsB = tree_parents(pkB)
                 parentsAB = zip(parentsA,parentsB)
                 for pA, pB in parentsAB:
-                    #lev = 2**(len(pkA) - len(pA))
-                    lev2_list = [ pC for pC in self.pfA.idxtree if len(pC) >= len(pA) and pC[:len(pA)] == pA ]
-                    lev2_plist = set([])
-                    for l in lev2_list:
-                        lev2_plist |= set(tree_parents(l)[1:])
-                    lev2 = len(set(lev2_list) - set(lev2_plist))
+                    sz2a, sz2b = self.pfA.idxtree[pkA]
+                    sz2 = sz2b - sz2a 
+                    sz1a, sz1b = self.pfA.idxtree[pA]
+                    sz1 = sz1b - sz1a 
+                    lev2 = 1.0 + sz1 / float(sz2)
+                    #lev2 = 2**(len(pkA) - len(pA))
+                    #lev2_list = [ pC for pC in self.pfA.idxtree if len(pC) >= len(pA) and pC[:len(pA)] == pA ]
+                    #lev2_plist = set([])
+                    #for l in lev2_list:
+                    #    lev2_plist |= set(tree_parents(l)[1:])
+                    #lev2 = len(set(lev2_list) - set(lev2_plist))
                             
                     pEq = (pB, float(punt)/lev2)
                     if pA not in self.parent_equivalences: 
@@ -114,14 +119,16 @@ class FindEquivalences:
                 if punt >= 0.01:
                     rcount.append((round(punt*100),key))
                     
+            rowA = self.pfA.table[self.pfA.idxtree[pA]]
             if len(rcount):
                 punt, pB = max(rcount)
                 self.parent_equivalences2[pA] = pB
-                print "parent:", pA, "%d%%\t" % punt, pB, len(rcount) 
+                rowB = self.pfB.table[self.pfB.idxtree[pB]]
+                print "parent:", pA, rowA['name'], "%d%%\t" % punt, pB, len(rcount) , rowB['name']
                 if punt > 60:
                     norepeat = pA
             else:        
-                print "parent:", pA, "0%\t  ???"
+                print "parent:", pA, rowA['name'], "0%\t  ???"
                 
         """
         norepeat = (0,)
