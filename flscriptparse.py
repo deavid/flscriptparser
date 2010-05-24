@@ -21,7 +21,13 @@ reserv=['nonassoc']
 reserv+=list(flex.reserved)
 
 def cnvrt(val):
-    return str(val).replace('"','\\"')
+    val = str(val)
+    val = val.replace('&','&amp;')
+    val = val.replace('"','&quot;')
+    val = val.replace("'",'&apos;')
+    val = val.replace("<",'&lt;')
+    val = val.replace(">",'&gt;')
+    return val
 
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
@@ -435,10 +441,10 @@ def printtree(tree, depth = 0, otype = "source", mode = None):
     global hashes, ranges
     sep = "    "
     marginblocks = {
-        "classdeclaration" : 3,
-        "funcdeclaration" : 2,
-        "statement_block" : 3,
-        "instruction" : 1,
+        "classdeclaration" : 1,
+        "funcdeclaration" : 1,
+        "statement_block" : 1,
+        #"instruction" : 1,
     }
     closingtokens = [
         "RBRACE",
@@ -462,6 +468,9 @@ def printtree(tree, depth = 0, otype = "source", mode = None):
             
         if type(value) is dict and ctype == otype:
             tname,tlines,trange = printtree(value, depth, ctype)
+            if name == "" and tname:
+                name = tname
+                
             lines += tlines
         elif type(value) is dict:
             l = 0
@@ -471,7 +480,7 @@ def printtree(tree, depth = 0, otype = "source", mode = None):
             tname,tlines,trange = printtree(value, depth+1, ctype)
             # lines.append(sep * depth + "<!-- %d -->" % (len("".join(tlines))))
             
-            if value['has_data'] > 0 and value['has_objects'] == 0:
+            if value['has_data'] > 0 and value['has_objects'] == 0 and False:
                 # Do it inline!
                 if value['has_data']==1 and tname:
                     lines.append(sep * depth + "<%s id=\"%s\" />" % (ctype,tname))
@@ -509,7 +518,7 @@ def printtree(tree, depth = 0, otype = "source", mode = None):
                         lines+=tlines
                 if txtattrs:
                     txtattrs = "<!--%s -->" % txtattrs
-                lines.append(sep * depth + "</%s> %s" % (ctype, txtattrs))
+                lines.append(sep * depth + "</%s>" % (ctype))
                     
                 nuevalinea = True
         else:

@@ -83,9 +83,9 @@ class FindEquivalences:
                 parentsAB = zip(parentsA,parentsB)
                 for pA, pB in parentsAB:
                     sz2a, sz2b = self.pfA.idxtree[pkA]
-                    sz2 = sz2b - sz2a 
+                    sz2 = sz2b - sz2a + 1
                     sz1a, sz1b = self.pfA.idxtree[pA]
-                    sz1 = sz1b - sz1a 
+                    sz1 = sz1b - sz1a + 1
                     lev2 = 1.0 + sz1 / float(sz2)
                     #lev2 = 2**(len(pkA) - len(pA))
                     #lev2_list = [ pC for pC in self.pfA.idxtree if len(pC) >= len(pA) and pC[:len(pA)] == pA ]
@@ -309,12 +309,15 @@ def load(filename):
                     offset = isinside(ppk,pk)
                     np += offset
                     if offset: n = 1
-                    if it > 100:
-                        print it,n,pk,np, ppk, offset
-                        if offset < 0:
-                            print list(enumerate(bydepth[pdepth]))
-                            assert(offset >= 0)
-                        assert(it < 250)
+                    if offset < 0:
+                        print list(enumerate(bydepth[pdepth]))
+                        assert(offset >= 0)
+                    #if it > 100:
+                    #    print it,n,pk,np, ppk, offset
+                    #    if offset < 0:
+                    #        print list(enumerate(bydepth[pdepth]))
+                    #        assert(offset >= 0)
+                    #    assert(it < 250)
                 
                 prow = rows[ppk]
                 nparent = prow["tree_id"]
