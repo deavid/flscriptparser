@@ -113,22 +113,28 @@ class FindEquivalences:
                 ppB = self.parent_equivalences2[ppA]
             else:
                 ppB = None
-                                
+                
+            rowA = self.pfA.table[self.pfA.idxtree[pA]]
             for key, punt in count.copy().iteritems():
                 if ppB and key[:-1] != ppB: continue  
-                if punt >= 0.01:
+                rowB = self.pfB.table[self.pfB.idxtree[pB]]
+                nameA = rowA['name'].split(":")
+                nameB = rowB['name'].split(":")
+                if nameA[0] != nameB[0]: punt /=3.0
+                if nameA[1] != nameB[1]: punt /=1.0+len(nameA[1]) / 40.0+len(nameB[1]) / 40.0
+                if punt >= 0.50:
                     rcount.append((round(punt*100),key))
                     
-            rowA = self.pfA.table[self.pfA.idxtree[pA]]
             if len(rcount):
                 punt, pB = max(rcount)
                 self.parent_equivalences2[pA] = pB
                 rowB = self.pfB.table[self.pfB.idxtree[pB]]
                 print "parent:", pA, rowA['name'], "%d%%\t" % punt, pB, len(rcount) , rowB['name']
-                if punt > 60:
+                if punt > 100:
                     norepeat = pA
             else:        
-                print "parent:", pA, rowA['name'], "0%\t  ???"
+                if len(pA) == 1:
+                    print "parent:", pA, rowA['name'], "0%\t  ???"
                 
         """
         norepeat = (0,)
