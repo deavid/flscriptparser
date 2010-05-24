@@ -437,8 +437,12 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
 
 hashes = []
 ranges = []
-def printtree(tree, depth = 0, otype = "source", mode = None):
+def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdout):
     global hashes, ranges
+    if depth == 0:
+        hashes = []
+        ranges = []
+        
     sep = "    "
     marginblocks = {
         "classdeclaration" : 1,
@@ -533,10 +537,14 @@ def printtree(tree, depth = 0, otype = "source", mode = None):
     if mode == "hash":
         #print "\n".join(lines)
         for row in sorted(ranges):
-            print "\t".join([ str(x) for x in row])
+            output.write("\t".join([ str(x) for x in row]))
+            output.write("\n")
+            output.flush()
     if mode == "xml":
         for row in lines:
-            print row
+            output.write(row)
+            output.write("\n")
+            output.flush()
     
     return name, lines, tree['range']
         
@@ -569,11 +577,42 @@ def main():
     if options.optdebug:
         print options, args
 
+
+
+
+    def do_it():
+        tree_data = calctree(prog)
+        if options.output == "hash":    
+            printtree(tree_data, mode = "hash")
+        elif options.output == "xml":
+            printtree(tree_data, mode = "xml")
+        elif options.output == "file":
+            f1_hash = open(filename+".hash","w")
+            printtree(tree_data, mode = "hash", output = f1_hash)
+            f1_hash.close()
+            
+            f1_xml = open(filename+".xml","w")
+            printtree(tree_data, mode = "xml", output = f1_xml)
+            f1_xml.close()
+            
+        else:
+            print "Unknown outputmode", options.output
+
     prog = "$$$"
     if len(args) > 0 :                               
-        data = open(args[0]).read()                  
-        prog = parse(data)                      
-        if not prog: raise SystemExit                    
+        for filename in args:
+            sys.stderr.write("Processing %s ..." % filename)
+            sys.stderr.flush()
+            data = open(filename).read()                  
+            sys.stderr.write(" parsing ...")
+            sys.stderr.flush()
+            prog = parse(data)                      
+            sys.stderr.write(" formatting ...")
+            sys.stderr.flush()
+            if prog: do_it()
+            sys.stderr.write(" Done.\n")
+            sys.stderr.flush()
+        
     else:
 
 
@@ -586,15 +625,7 @@ def main():
             line += "\n"                    
         print
         prog = parse(line)     
-
-    tree_data = calctree(prog)
-    if options.output == "hash":    
-        printtree(tree_data, mode = "hash")
-    elif options.output == "xml":
-        printtree(tree_data, mode = "xml")
-    else:
-        print "Unknown outputmode", options.output
-
+        do_it()
     """
     import yaml
 
