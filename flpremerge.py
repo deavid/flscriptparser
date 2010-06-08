@@ -1,6 +1,7 @@
 import os, os.path, sys
 import math
 from optparse import OptionParser
+import difflib 
 
 class processedFile:
     pass
@@ -118,10 +119,17 @@ class FindEquivalences:
             for key, punt in count.copy().iteritems():
                 if ppB and key[:-1] != ppB: continue  
                 rowB = self.pfB.table[self.pfB.idxtree[pB]]
-                nameA = rowA['name'].split(":")
-                nameB = rowB['name'].split(":")
-                if nameA[0] != nameB[0]: punt /=3.0
-                if nameA[1] != nameB[1]: punt /=1.0+len(nameA[1]) / 40.0+len(nameB[1]) / 40.0
+                nameA = self.fullQName(pA,"A") #rowA['name'].split(":")
+                nameB = self.fullQName(pB,"B") #rowB['name'].split(":")
+                s = difflib.SequenceMatcher()
+                s.set_seqs(nameA,nameB)
+                t = s.quick_ratio()
+                t -= 0.9
+                if t < 0: t = 0
+                t *= 10.0
+                punt *= t
+                #if nameA[0] != nameB[0]: punt /=3.0
+                #if nameA[1] != nameB[1]: punt /=1.0+len(nameA[1]) / 40.0+len(nameB[1]) / 40.0
                 if punt >= 0.50:
                     rcount.append((round(punt*100),key))
                     
@@ -129,12 +137,12 @@ class FindEquivalences:
                 punt, pB = max(rcount)
                 self.parent_equivalences2[pA] = pB
                 rowB = self.pfB.table[self.pfB.idxtree[pB]]
-                print "parent:", pA, rowA['name'], "%d%%\t" % punt, pB, len(rcount) , rowB['name']
+                print "parent:", pA, self.fullQName(pA,"A"), "%d%%\t" % punt, pB, len(rcount) , self.fullQName(pB,"B")
                 if punt > 100:
                     norepeat = pA
             else:        
                 if len(pA) == 1:
-                    print "parent:", pA, rowA['name'], "0%\t  ???"
+                    print "parent:", pA, self.fullQName(pA,"A"), "0%\t  ???"
                 
         """
         norepeat = (0,)
@@ -167,7 +175,28 @@ class FindEquivalences:
                     print ">>", ".".join(["%02d" % x for x in pkB])
                     prevprint = pkA
             """        
-
+    def Qname(self,p,ptype):
+        if ptype=="A":
+            pf = self.pfA
+        elif ptype=="B":
+            pf = self.pfB
+        else:
+            assert 0
+        row = pf.table[pf.idxtree[p]]
+        return row["name"]
+            
+    
+    def fullQName(self,p, ptype):
+        
+        name=[]
+        
+        for n in range(len(p)):
+            ps1 = p[:n+1]
+            name.append(self.Qname(ps1,ptype))
+        return "/".join(name)
+        
+            
+    
     def getMaxKnown(self,pkA):
         pkA = tuple(pkA)
         if len(pkA) == 0: return 1.0, None
