@@ -2,9 +2,21 @@ import os, os.path, sys
 import math
 from optparse import OptionParser
 import difflib 
+import re
 
 class processedFile:
     pass
+
+def linejunk(line):
+    line = line.strip()
+    if len(line)<4: return True
+    if line[2] == "//": return True
+    return False
+    
+def charjunk(char):
+    junk = [" ", "\t"]
+    if char in junk: return True
+    return False
 
 def main():
     parser = OptionParser()
@@ -51,6 +63,7 @@ class FindEquivalences:
         self.parent_equivalences = {}
         self.max_known_eq = {}
         self.pfA, self.pfB = pfA, pfB
+        self.cacheFullQname = {}
         if autoCompute: self.compute()
         
     def compute(self):
@@ -58,6 +71,154 @@ class FindEquivalences:
                 self.pfA.filename, 
                 self.pfB.filename
                 )
+        namesA = {}
+        for pkA in self.pfA.idxtree:
+            if len(pkA) > 1: continue
+            nameA = self.fullQName(pkA,"A") 
+            if nameA not in namesA: namesA[nameA] = []
+            namesA[nameA].append(pkA)
+            
+        namesB = {}
+        sortedNames = []
+        for pkB in self.pfB.idxtree:
+            if len(pkB) > 1: continue
+            nameB = self.fullQName(pkB,"B") 
+            if nameB not in namesB: namesB[nameB] = []
+            namesB[nameB].append(pkB)
+            sortedNames.append((self.pfB.idxtree[pkB],nameB))
+        
+        sNamesA = set(namesA.keys())
+        sNamesB = set(namesB.keys())
+        print "Modified names:"
+        commonNames = sorted(list(sNamesA & sNamesB))
+        for name in commonNames:     
+            if len(namesA[name]) > 1 or len(namesB[name]) > 1:
+                print "-", name,"(%d,%d)" % (len(namesA[name]),len(namesB[name]))
+            else:
+                keyA = self.pfA.idxtree[namesA[name][0]]
+                rowA = self.pfA.table[keyA]
+                keyB = self.pfB.idxtree[namesB[name][0]]
+                rowB = self.pfB.table[keyB]
+                if rowA['hash'] != rowB['hash']:
+                    print "###", name,"###"
+                    fileA = self.pfA.filename.replace(".hash","")
+                    fileB = self.pfB.filename.replace(".hash","")
+                    if os.path.isfile(fileA) and os.path.isfile(fileB):
+                        fA = open(fileA)
+                        fA.seek(keyA[0])
+                        sA = fA.read(keyA[1]-keyA[0]+1)
+                        fA.close()
+                        
+                        fB = open(fileB)
+                        fB.seek(keyB[0])
+                        sB = fB.read(keyB[1]-keyB[0]+1)
+                        fB.close()
+                        
+                        sA = sA.replace("\t", "        ")
+                        sB = sB.replace("\t", "        ")
+                        lines = list(difflib.ndiff(sA.splitlines(1), sB.splitlines(1),linejunk,charjunk))
+                        modifiedlines = []
+                        for n,line in enumerate(lines):
+                            if line[0] != " ":
+                                modifiedlines.append(n)
+                        ml = 0
+                        omit = []
+                        Context = 3
+                        n = 0
+                        for line in lines:
+                            d = []
+                            for m in modifiedlines:
+                                dt = abs(m-n)
+                                d.append(dt)
+                                if dt < Context: break
+                            dmin = min(d)
+                            if dmin < Context:
+                                if len(omit) :
+                                    if len(omit)>= Context:
+                                        for line in omit:
+                                            if line[0] in (' ','+'): n+=1
+                                        print "   ", "(... %d lines ommitted ...)" % len(omit)
+                                    else:
+                                        for line in omit:
+                                            if line[0] in (' ','+'): n+=1
+                                            print "%03d" % n , line      ,    
+                                    omit = []
+                                if line[0] in (' ','+'): 
+                                    n+=1
+                                    print "%03d" % n , line      ,    
+                                else:                                
+                                    print "%03d" % (n+1) , line      ,    
+                            else:
+                                omit.append(line)
+                        if len(omit) :
+                            if len(omit)>= Context:
+                                for line in omit:
+                                    if line[0] in (' ','+'): n+=1
+                                print "   ", "(... %d lines ommitted ...)" % len(omit)
+                            else:
+                                for line in omit:
+                                    if line[0] in (' ','+'): n+=1
+                                    print "%03d" % n , line      ,    
+                            omit = []
+                        print
+                    else:
+                        print "(diff ommitted because we couldn't find original files)"
+                
+        print
+        print "Deleted names:"
+        deletedNames = sorted(list(sNamesA - sNamesB))
+        for name in deletedNames:      
+            print "-", name
+        print
+        print "Added names:"
+        addedNames = sorted(list(sNamesB - sNamesA))
+        for name in addedNames:      
+            print "-", name
+        print
+        antdesde, anthasta = 0 , 0 
+        fileB = self.pfB.filename.replace(".hash","")
+        fB = open(fileB)
+        
+        for pk, name in sorted(sortedNames):
+            desde, hasta = pk
+            if desde > anthasta + 1:
+                bdesde = anthasta +1
+                bhasta = desde - 1
+                fB.seek(bdesde)
+                sB = fB.read((bhasta-bdesde)+1)
+                
+                
+                print "BLOCK", ( bdesde , bhasta), (bhasta-bdesde)+1
+                print "<<<<"
+                lasttype = ""
+                for line in sB.splitlines(1):
+                    ltype = "junk"
+                    isseparator = re.match(r'[ \t]*\n',line)
+                    iscommentline1 = re.match(r'[ \t]*//.+\n',line)
+                    iscommentline2 = re.match(r'[ \t]*/\*.+\*/\n',line)
+                    iscommentbegin = re.match(r'[ \t]*/\*.+\n',line)
+                    iscommentend = re.match(r'.+\*/[ \t]*\n',line)
+                    
+                    if isseparator: ltype = "separator"
+                    elif iscommentline1: ltype = "comment_inline"
+                    elif iscommentline2: ltype = "comment"
+                    elif iscommentbegin: ltype = "comment_begin"
+                    elif iscommentend: ltype = "comment_end"
+                    
+                    
+                    
+                    
+                    
+                    print ltype, line,
+                #print sB,
+                print ">>>>"
+            print name, pk, (hasta-desde)+1
+            antdesde, anthasta = pk
+        fB.close()
+        return
+            
+            
+            
     
         for key in self.pfA.list_hashes:
             if key in self.pfB.hashes:
@@ -124,7 +285,7 @@ class FindEquivalences:
                 s = difflib.SequenceMatcher()
                 s.set_seqs(nameA,nameB)
                 t = s.quick_ratio()
-                t -= 0.9
+                t -= 0.8
                 if t < 0: t = 0
                 t *= 10.0
                 punt *= t
@@ -187,14 +348,22 @@ class FindEquivalences:
             
     
     def fullQName(self,p, ptype):
+        if ptype not in self.cacheFullQname:
+            self.cacheFullQname[ptype] = {}
+        dcache = self.cacheFullQname[ptype]
+        if p not in dcache:
+            name=[]
         
-        name=[]
+            for n in range(len(p)):
+                ps1 = p[:n+1]
+                name.append(self.Qname(ps1,ptype))
+            fullname = "/".join(name)
+            dcache[p] = fullname
+        else:
+            fullname = dcache[p]
         
-        for n in range(len(p)):
-            ps1 = p[:n+1]
-            name.append(self.Qname(ps1,ptype))
-        return "/".join(name)
-        
+        return fullname
+
             
     
     def getMaxKnown(self,pkA):
