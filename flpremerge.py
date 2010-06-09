@@ -178,7 +178,15 @@ class FindEquivalences:
         antdesde, anthasta = 0 , 0 
         fileB = self.pfB.filename.replace(".hash","")
         fB = open(fileB)
-        
+        pos = 0
+        linePosChar = [pos]
+        fB.seek(0)
+        line = fB.readline()
+        while line:
+            pos += len(line)
+            linePosChar.append(pos)
+            line = fB.readline()
+        linenum = 0
         for pk, name in sorted(sortedNames):
             desde, hasta = pk
             if desde > anthasta + 1:
@@ -188,10 +196,21 @@ class FindEquivalences:
                 sB = fB.read((bhasta-bdesde)+1)
                 
                 
-                print "BLOCK", ( bdesde , bhasta), (bhasta-bdesde)+1
-                print "<<<<"
-                lasttype = ""
+                while linenum < len(linePosChar) and  linePosChar[linenum]+1<bdesde: linenum += 1
+                startline = linenum
+                while linenum < len(linePosChar) and linePosChar[linenum]+1<bhasta: linenum += 1
+                endline = linenum 
+                
+                #print (startline, endline), "BLOCK", (linePosChar[startline], linePosChar[endline]), (bdesde , bhasta), (bhasta-bdesde)+1
+                
+                #print "<<<<"
+                mode = ""
+                nline = startline
+                beginline = startline
+                bblocks = []
                 for line in sB.splitlines(1):
+                    nline += 1
+                    if line[-1]!='\n': break
                     ltype = "junk"
                     isseparator = re.match(r'[ \t]*\n',line)
                     iscommentline1 = re.match(r'[ \t]*//.+\n',line)
@@ -201,18 +220,43 @@ class FindEquivalences:
                     
                     if isseparator: ltype = "separator"
                     elif iscommentline1: ltype = "comment_inline"
-                    elif iscommentline2: ltype = "comment"
-                    elif iscommentbegin: ltype = "comment_begin"
-                    elif iscommentend: ltype = "comment_end"
+                    elif iscommentline2: ltype = "comment_block_inline"
+                    elif iscommentbegin: ltype = "comment_block"
+                    elif iscommentend: ltype = "comment_blockend"
                     
-                    
-                    
-                    
-                    
-                    print ltype, line,
+                    if mode == "comment_block" and ltype == "comment_blockend":
+                        mode = "comment_blockend"
+                        
+                    if mode == "comment_block" and ltype != "comment_blockend":
+                        ltype = "comment_block"
+                        
+                        
+                    if mode != ltype: 
+                        if mode:
+                            if mode == "comment_blockend":
+                                mode = "comment_block"
+                            thisblock = ( (beginline, nline-1), mode )
+                            bblocks.append(thisblock)
+                        mode = ltype
+                        beginline = nline - 1
+                        
+                if mode:
+                    if mode == "comment_blockend":
+                        mode = "comment_block"
+                    thisblock = ( (beginline, nline), mode )
+                    bblocks.append(thisblock)
+                    #print ltype, line,
+
+                for lines, bname in bblocks:
+                    print lines, " ", bname
                 #print sB,
-                print ">>>>"
-            print name, pk, (hasta-desde)+1
+                #print ">>>>"
+                
+            while linenum < len(linePosChar) and  linePosChar[linenum]+1<desde: linenum += 1
+            startline = linenum
+            while linenum < len(linePosChar) and linePosChar[linenum]+1<hasta: linenum += 1
+            endline = linenum 
+            print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             antdesde, anthasta = pk
         fB.close()
         return
