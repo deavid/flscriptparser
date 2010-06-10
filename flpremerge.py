@@ -72,20 +72,22 @@ class FindEquivalences:
                 self.pfB.filename
                 )
         namesA = {}
+        sortedNamesA = []
         for pkA in self.pfA.idxtree:
             if len(pkA) > 1: continue
             nameA = self.fullQName(pkA,"A") 
             if nameA not in namesA: namesA[nameA] = []
             namesA[nameA].append(pkA)
+            sortedNamesA.append((self.pfA.idxtree[pkA],nameA))
             
         namesB = {}
-        sortedNames = []
+        sortedNamesB = []
         for pkB in self.pfB.idxtree:
             if len(pkB) > 1: continue
             nameB = self.fullQName(pkB,"B") 
             if nameB not in namesB: namesB[nameB] = []
             namesB[nameB].append(pkB)
-            sortedNames.append((self.pfB.idxtree[pkB],nameB))
+            sortedNamesB.append((self.pfB.idxtree[pkB],nameB))
         
         sNamesA = set(namesA.keys())
         sNamesB = set(namesB.keys())
@@ -175,8 +177,8 @@ class FindEquivalences:
         for name in addedNames:      
             print "-", name
         print
-        antdesde, anthasta = 0 , 0 
         fileB = self.pfB.filename.replace(".hash","")
+        antdesde, anthasta = 0 , -1 
         fB = open(fileB)
         pos = 0
         linePosChar = [pos]
@@ -187,7 +189,7 @@ class FindEquivalences:
             linePosChar.append(pos)
             line = fB.readline()
         linenum = 0
-        for pk, name in sorted(sortedNames):
+        for pk, name in sorted(sortedNamesB):
             desde, hasta = pk
             if desde > anthasta + 1:
                 bdesde = anthasta +1
@@ -208,6 +210,7 @@ class FindEquivalences:
                 nline = startline
                 beginline = startline
                 bblocks = []
+                blockdesc = []
                 for line in sB.splitlines(1):
                     nline += 1
                     if line[-1]!='\n': break
@@ -218,11 +221,14 @@ class FindEquivalences:
                     iscommentbegin = re.match(r'[ \t]*/\*.+\n',line)
                     iscommentend = re.match(r'.+\*/[ \t]*\n',line)
                     
+                        
+                    
                     if isseparator: ltype = "separator"
                     elif iscommentline1: ltype = "comment_inline"
                     elif iscommentline2: ltype = "comment_block_inline"
                     elif iscommentbegin: ltype = "comment_block"
                     elif iscommentend: ltype = "comment_blockend"
+                    #else:  print "junk?", line,
                     
                     if mode == "comment_block" and ltype == "comment_blockend":
                         mode = "comment_blockend"
@@ -235,20 +241,32 @@ class FindEquivalences:
                         if mode:
                             if mode == "comment_blockend":
                                 mode = "comment_block"
-                            thisblock = ( (beginline, nline-1), mode )
+                            thisblock = ( (beginline, nline-1), ""+mode , ".".join(blockdesc)[:32])
+                            blockdesc = []
                             bblocks.append(thisblock)
                         mode = ltype
                         beginline = nline - 1
                         
+                    words = re.split(r'\W+',line)
+                    if words:
+                        text = " ".join(words)
+                        text = text.strip()
+                        text = text.replace(" ", "-")
+                        if len(text)>1:
+                            blockdesc.append(text)
+                        
                 if mode:
                     if mode == "comment_blockend":
                         mode = "comment_block"
-                    thisblock = ( (beginline, nline), mode )
+
+                    thisblock = ( (beginline, nline),""+mode, ".".join(blockdesc)[:32] )
                     bblocks.append(thisblock)
+                    blockdesc = []
                     #print ltype, line,
 
-                for lines, bname in bblocks:
-                    print lines, " ", bname
+                for lines, bname, desc in bblocks:
+                    #print lines, " ", "%s:%s" % (bname, desc)
+                    print "#..%s:%s" % (bname, desc)
                 #print sB,
                 #print ">>>>"
                 
@@ -256,7 +274,8 @@ class FindEquivalences:
             startline = linenum
             while linenum < len(linePosChar) and linePosChar[linenum]+1<hasta: linenum += 1
             endline = linenum 
-            print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
+            #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
+            print "%s" % name
             antdesde, anthasta = pk
         fB.close()
         return
