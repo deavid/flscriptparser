@@ -70,7 +70,8 @@ class processedFile:
             linePosChar.append(pos)
             line = fB.readline()
         linenum = 0
-        for pk, name in sorted(self.sortedNames):
+        self.linePosChar = linePosChar
+        for pk, bl_name in sorted(self.sortedNames):
             desde, hasta = pk
             if desde > anthasta + 1:
                 bdesde = anthasta +1
@@ -160,6 +161,7 @@ class processedFile:
             startline = linenum
             while linenum < len(linePosChar) and linePosChar[linenum]+1<hasta: linenum += 1
             endline = linenum 
+            name = bl_name
             #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             self.computedBlocks.append((startline, endline,name))
             fout.write("%d\t%d\t%s\n" % (startline, endline,name))
