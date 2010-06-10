@@ -160,13 +160,16 @@ class processedFile:
             while linenum < len(linePosChar) and  linePosChar[linenum]+1<desde: linenum += 1
             startline = linenum
             while linenum < len(linePosChar) and linePosChar[linenum]+1<hasta: linenum += 1
-            endline = linenum 
+            #linenum += 1
+            endline = linenum + 1
             name = bl_name
             #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             self.computedBlocks.append((startline, endline,name))
             fout.write("%d\t%d\t%s\n" % (startline, endline,name))
             #print "%s" % name
             antdesde, anthasta = pk
+            if anthasta < linePosChar[linenum] + 1:
+                anthasta = linePosChar[linenum] + 1
         fB.close()
         fout.close()
             
