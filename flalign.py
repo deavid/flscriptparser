@@ -47,7 +47,7 @@ class ProcessFile:
         return added, deleted
         
         
-def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
+def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = False):
     diffAB = list(difflib.ndiff(A.sortednames, B.sortednames))
     diffAC = list(difflib.ndiff(A.sortednames, C.sortednames))
     
@@ -60,18 +60,22 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
     maxA = len(A.sortednames)
     maxB = len(B.sortednames)
     maxC = len(C.sortednames)
-    
     patchedResult = []
-    
+
     def AddPatchLine(mode):
         modefrom = mode[0]
         modetype = mode[1]
         linefrom = None
         linetext = ""
+        conflict = False
         linenumbers = nlA,nlB,nlC 
         if modetype == "-":
             linetext = lineaA
             linefrom = "A"
+            if modefrom == "B":
+                DeletedB.append(lineaA)
+            elif modefrom == "C":
+                DeletedC.append(lineaA)
         elif modetype == "=":
             modefrom = prefer
             if modefrom == "A":
@@ -86,8 +90,14 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
                 linetext = lineaA
             elif modefrom == "B":
                 linetext = lineaB
+                if lineaB in AddedB: conflict = True
+                if lineaB in AddedC: conflict = True
+                AddedB.append(lineaB)
             elif modefrom == "C":
                 linetext = lineaC
+                if lineaC in AddedB: conflict = True
+                if lineaC in AddedC: conflict = True
+                AddedC.append(lineaC)
             linefrom = modefrom
         line = (
             modefrom, modetype,
@@ -95,11 +105,42 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
             linefrom,
             linetext
         )
-        patchedResult.append(line)
+        #ConflictMode = False
+        if len(ConflictMode):
+            if linetext[0]!="#": ConflictMode.pop()
+            else: 
+                #print ">>", len(ConflictMode),linetext
+                if len(ConflictMode)>1 and linetext.find("separator") == -1:
+                    ConflictMode.pop()
+                elif linetext.find("separator") >= 0: 
+                    ConflictMode.pop()
+                return
+        if conflict and linetext[0]!="#":
+            if debug:
+                print "WARNING: Omitting previously added block <%s>" % linetext
+            
+            while patchedResult[-1][4][0]=="#" and patchedResult[-1][4].find("separator") >= 0: 
+                #print "sep//",
+                patchedResult.pop()
+                
+            while patchedResult[-1][4][0]=="#" and patchedResult[-1][4].find("separator") == -1: 
+                #print "comm//",
+                patchedResult.pop()
+            #if patchedResult[-1][4][0]=="#": patchedResult.pop()
+                
+            ConflictMode.append(1)
+            ConflictMode.append(1)
+        else:
+            patchedResult.append(line)
         
-    
+    AddedB = []
+    AddedC = []
+    DeletedB = []
+    DeletedC = []
+    ConflictMode = []
             
     while True:
+        
         if (
             nlA >= maxA and 
             nlB >= maxB and 
@@ -148,6 +189,28 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
             nlA += 1
             nlB += 1
             nlC += 1
+        elif swap and sAB=="+":
+            AddPatchLine("B+")
+            if debug:
+                print "B+%04d" % nlB, lineaB
+            if lineaB!=cAB and not quiet:
+                print "B!    " , cAB
+                
+            nlAB += 1
+            nlB += 1
+        elif sAC=="+":
+            AddPatchLine("C+")
+            if debug:
+                print "C+%04d" % nlC, lineaC
+            if not quiet and lineaC!=cAC:
+                print "C!    " , cAC
+            nlAC += 1
+            nlC += 1
+        elif sAC=="?":
+            nlAC += 1
+            if debug:
+                print "?>    " , cAC
+
         elif sAB=="+":
             AddPatchLine("B+")
             if debug:
@@ -162,19 +225,7 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
             if debug:
                 print "?>    " , cAB
             
-        elif sAC=="+":
-            AddPatchLine("C+")
-            if debug:
-                print "C+%04d" % nlC, lineaC
-            if not quiet and lineaC!=cAC:
-                print "C!    " , cAC
-            nlAC += 1
-            nlC += 1
-        elif sAC=="?":
-            nlAC += 1
-            if debug:
-                print "?>    " , cAC
-        elif sAB=="-":
+        elif swap and sAB=="-":
             AddPatchLine("B-")
             if debug:
                 print "B-%04d" % nlA, lineaA
@@ -198,12 +249,60 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
             nlAB += 1
             nlA += 1
             nlB += 1
+        elif sAB=="-":
+            AddPatchLine("B-")
+            if debug:
+                print "B-%04d" % nlA, lineaA
+            if lineaA!=cAB and not quiet:
+                print "B!    " , cAB
+            if sAC!=" " and not quiet:
+                print "?? C", sAC,cAC
+            nlAB += 1
+            nlAC += 1
+            nlA += 1
+            nlC += 1
         else:
             if not quiet:
                 print sAB,"*", sAC
             break
         
-            
+    addedB = set(filter(lambda x: x[0]!="#",AddedB))
+    addedC = set(filter(lambda x: x[0]!="#",AddedC))
+    
+    deletedB = set(filter(lambda x: x[0]!="#",DeletedB))
+    deletedC = set(filter(lambda x: x[0]!="#",DeletedC))
+    
+    movedB = addedB & deletedB
+    movedC = addedC & deletedC
+    
+    conflictsAA = addedB & addedC
+    conflictsDD = deletedB & deletedC
+    conflictsAD = addedB & deletedC
+    conflictsDA = deletedB & addedC
+    
+    if movedB:
+        print "CONFLICTS BLOCK MOVED A(%s)->B(%s):" % (A.filename,B.filename)
+        for name in movedB: print "-",name
+        
+    if movedC:
+        print "CONFLICTS BLOCK MOVED A(%s)->C(%s):" % (A.filename,C.filename)
+        for name in movedC: print "-",name
+        
+    if conflictsAA:
+        print "CONFLICTS SAME BLOCK ADDED B(%s)-C(%s):"  % (B.filename,C.filename)
+        for name in conflictsAA: print "-",name
+        
+    if conflictsDD:
+        print "CONFLICTS SAME BLOCK DELETED B(%s)-C(%s):"  % (B.filename,C.filename)
+        for name in conflictsDD: print "-",name
+        
+    if conflictsAD:
+        print "CONFLICTS BLOCK ADDED BY %s , DELETED BY %s:" % (B.filename,C.filename)
+        for name in conflictsAD: print "-",name
+        
+    if conflictsDA:
+        print "CONFLICTS BLOCK DELETED BY %s , ADDED BY %s:" % (B.filename,C.filename)
+        for name in conflictsDA: print "-",name
         
         
     
@@ -229,12 +328,13 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False):
     return plist
 """
 
-def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False):
-    patchlist = appliedDiff(C, A, B)
+def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap = False):
+    patchlist = appliedDiff(C, A, B, prefer , debug, quiet, swap)
     F = {"A": A, "B": B, "C": C}        
     L = ["A", "B", "C"]        
-    fout = open(C.filename + ".aligned","w")
     
+    fout = open(F[prefer].filename + ".aligned","w")
+    classlist = []
     for Fby,action, nlines, Fwhich, line in patchlist:
         nlA, nlB, nlC = nlines
         if action not in ("+","="): continue
@@ -244,6 +344,32 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False):
         text = "".join(
                 F[Fwhich].lines[int(linebegin):int(lineend)]
             )
+        sline = line.split(":")
+        if sline[0]=="classdeclaration":
+            if len(classlist):
+                lastclass = classlist[-1]
+            else:
+                lastclass = None
+                
+            thisclass = sline[1]
+            classlist.append(thisclass)
+            if lastclass:
+                rs1 = re.search("class (\w+) extends (\w+)",text)
+                if rs1:
+                    if lastclass != rs1.group(2):
+                        print "INFO: Changing >> class", thisclass, "extends",rs1.group(2), "--> extends", lastclass
+                        text = re.sub("class (\w+) extends (\w+)", "class %s extends %s" % (thisclass,lastclass),text)
+                rs2 = re.search("function .*%s\(.*context.*\) { (\w+)" % thisclass,text)
+                if rs2:
+                    if lastclass != rs2.group(1):
+                        badline = rs2.group(0)
+                        goodline = badline.replace(rs2.group(1),lastclass)
+                        print "INFO: Changing >>", badline , "-->", goodline
+                        text = text.replace(badline,goodline)
+                            
+                else:
+                    print text[:64]
+                
         if debug:
             fout.write("<<< %s (%d:%d) || %s >>>\n" % (Fwhich,int(linebegin),int(lineend), line))
         fout.write(text)
@@ -285,10 +411,11 @@ def main():
            
     #addedAB, deletedAB = A.diffTo(B)
     #addedAC, deletedAC = A.diffTo(C)
-    
-    writeAlignedFile(C, A, B)
-    writeAlignedFile(B, A, C)
-    writeAlignedFile(A, A, C)
+    is_debug = False
+    writeAlignedFile(C, A, B, swap = True, debug= is_debug)
+    writeAlignedFile(B, A, C, debug= is_debug)
+    writeAlignedFile(B, A, C, prefer = "A", debug= is_debug)
+    #writeAlignedFile(A, A, C)
         
         
 if __name__ == "__main__": main()        

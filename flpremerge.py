@@ -74,15 +74,14 @@ class processedFile:
         for pk, bl_name in sorted(self.sortedNames):
             desde, hasta = pk
             if desde > anthasta + 1:
-                bdesde = anthasta +1
+                bdesde = anthasta + 1
                 bhasta = desde - 1
                 fB.seek(bdesde)
                 sB = fB.read((bhasta-bdesde)+1)
             
-            
-                while linenum < len(linePosChar) and  linePosChar[linenum]+1<bdesde: linenum += 1
+                #while linenum < len(linePosChar) and  linePosChar[linenum+1]<bdesde: linenum += 1
                 startline = linenum
-                while linenum < len(linePosChar) and linePosChar[linenum]+1<bhasta: linenum += 1
+                while linenum < len(linePosChar) and linePosChar[linenum+1]<bhasta+1: linenum += 1
                 endline = linenum 
             
                 #print (startline, endline), "BLOCK", (linePosChar[startline], linePosChar[endline]), (bdesde , bhasta), (bhasta-bdesde)+1
@@ -156,12 +155,14 @@ class processedFile:
                     #print "#..%s:%s" % (bname, desc)
                 #print sB,
                 #print ">>>>"
-            
-            while linenum < len(linePosChar) and  linePosChar[linenum]+1<desde: linenum += 1
-            startline = linenum
-            while linenum < len(linePosChar) and linePosChar[linenum]+1<hasta: linenum += 1
+            initline = linenum
+            while linenum < len(linePosChar) and  linePosChar[linenum+1]<desde+2: linenum += 1
+            startline = linenum 
+            while linenum < len(linePosChar) and linePosChar[linenum]<hasta+1: linenum += 1
             #linenum += 1
-            endline = linenum + 1
+            endline = linenum 
+            if linePosChar[startline] - desde > 0 or linePosChar[endline] - hasta < 1:
+                print linePosChar[startline] - desde,  linePosChar[endline] - hasta, bl_name
             name = bl_name
             #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             self.computedBlocks.append((startline, endline,name))
