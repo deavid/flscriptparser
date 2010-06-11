@@ -339,7 +339,11 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
         nlA, nlB, nlC = nlines
         if action not in ("+","="): continue
         nl = nlines[L.index(Fwhich)]
-        linebegin, lineend, line = F[Fwhich].blocks[nl]
+        try:
+            linebegin, lineend, line = F[Fwhich].blocks[nl]
+        except IndexError:
+            print "!!!ERROR MERGING!!"
+            continue
         
         text = "".join(
                 F[Fwhich].lines[int(linebegin):int(lineend)]
@@ -379,13 +383,21 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
     
 def main():
     parser = OptionParser()
-    parser.add_option("-q", "--quiet",
-                    action="store_false", dest="verbose", default=True,
-                    help="don't print status messages to stdout")
+    #parser.add_option("-q", "--quiet",
+    #                action="store_false", dest="verbose", default=True,
+    #                help="don't print status messages to stdout")
 
     parser.add_option("--optdebug",
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
+
+    parser.add_option("--debug",
+                    action="store_true", dest="debug", default=False,
+                    help="debug output")
+
+    parser.add_option("-q","--quiet",
+                    action="store_true", dest="quiet", default=False,
+                    help="don't print status messages to stdout")
 
     (options, args) = parser.parse_args()
     if options.optdebug:
