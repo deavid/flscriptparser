@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# FLMERGETOOL.
+# To add this tool to git, do the following:
+# flmergetool INSTALL
+
+thisprg=`realpath $0`
+thisdir=`dirname $thisprg`
+if test "$1" = "INSTALL"
+then
+    sudo ln -s $thisprg /usr/local/bin/flmergetool
+    git config --global mergetool.flmergetool.cmd \
+                        "flmergetool \$MERGED \$BASE \$LOCAL \$REMOTE"
+    git config --global mergetool.flmergetool.trustExitCode true
+    exit 0
+fi
+MERGE=$1
+BASE=$2
+LOCAL=$4
+REMOTE=$3
+if test -f $LOCAL 
+then
+    OK=1
+else
+    echo "File $LOCAL does not exist."
+    exit 1
+fi
+
+if test -f $BASE 
+then
+    OK=1
+else
+    echo "File $BASE does not exist."
+    exit 1
+fi
+
+if test -f $REMOTE
+then
+    OK=1
+else
+    echo "File $REMOTE does not exist."
+    exit 1
+fi
+
+if echo $MERGE | grep -E '\.qs' 
+then
+    OK=1
+else 
+    echo "File $MERGE does not have .qs"
+    exit 1
+fi
+
+if python $thisdir/flscriptparse.py -O file $BASE $LOCAL $REMOTE
+then
+    echo "FLScriptParse OK" 
+else
+    echo "FLScriptParse FAILED"
+    exit 1
+fi
+
+if test -f $BASE && test -f $LOCAL && test -f $REMOTE
+then
+    OK=1
+else
+    echo "FLScriptParse FAILED"
+    exit 1
+fi
+    
+if python $thisdir/flpremerge.py $BASE $LOCAL $REMOTE 
+then
+    echo "FLPreMerge OK"
+else
+    echo "FLPreMerge FAILED"
+    exit 1
+fi
+
+if python $thisdir/flalign.py $BASE $LOCAL $REMOTE 
+then
+    echo "FLAlign OK"
+else
+    echo "FLAlign FAILED"
+    exit 1
+fi
+echo "kdiff3 $BASE.aligned $LOCAL.aligned $REMOTE.aligned -o $MERGE --auto"
+if kdiff3 $BASE.aligned $LOCAL.aligned $REMOTE.aligned -o $MERGE --auto
+then
+    echo "KDIFF3 OK"
+else
+    echo "KDIFF3 FAILED"
+    exit 1
+fi
