@@ -50,13 +50,29 @@ else
     exit 1
 fi
 
-if python $thisdir/flscriptparse.py -O file $BASE $LOCAL $REMOTE
-then
-    echo "FLScriptParse OK" 
-else
-    echo "FLScriptParse FAILED"
-    exit 1
-fi
+for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
+    is_done=1
+    until [[ $is_done == 0 ]]
+    do
+        if python $thisdir/flscriptparse.py -O file "$file1" && test -f "$file1.xml"
+        then
+            echo "FLScriptParse OK" 
+            is_done=0
+        else
+            read -p "Fallo en el parseo del fichero, desea abrir un editor para corregirlo manualmente? [Y/n]:" editor
+            [[ $editor == "n" ]] && {
+            echo "FLScriptParse FAILED"
+            exit 1
+            }
+            [[ $editor ]] || editor="medit"
+            [[ $editor == "Y" ]] || editor="medit"
+            [[ $editor == "y" ]] || editor="medit"
+            "$editor" "$file1"
+            read -p "Pulse Intro si ha terminado." 
+        
+        fi
+    done
+done
 
 if test -f $BASE && test -f $LOCAL && test -f $REMOTE
 then
