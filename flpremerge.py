@@ -5,7 +5,8 @@ import difflib
 import re
 
 class processedFile:
-    def __init__(self, filename):
+    def __init__(self, filename, debug = False):
+        self.debug = debug
         self.table = {}    # Carga literal de la lista de hashes, pk: (startbyte, endbyte) = csvrow 
         self.idxdepth = {} 
         self.idxtree = {}  # pk: objnum (1.5.5.1.1) = (startbyte, endbyte)
@@ -71,13 +72,18 @@ class processedFile:
             line = fB.readline()
         linenum = 0
         self.linePosChar = linePosChar
-        for pk, bl_name in sorted(self.sortedNames):
+        for pk, bl_name in list(sorted(self.sortedNames))+[((None,None),None)]:
             desde, hasta = pk
-            if desde > anthasta + 1:
+            if desde is None or desde > anthasta + 1:
                 bdesde = anthasta + 1
-                bhasta = desde - 1
                 fB.seek(bdesde)
-                sB = fB.read((bhasta-bdesde)+1)
+                if desde:
+                    bhasta = desde - 1
+                    sB = fB.read((bhasta-bdesde)+1)
+                else:
+                    sB = fB.read()
+                    bhasta = bdesde + len(sB) -1
+                
             
                 while linenum < len(linePosChar) and linePosChar[linenum+1]<=bdesde: linenum += 1
                 startline = linenum
@@ -161,6 +167,7 @@ class processedFile:
                     #print "#..%s:%s" % (bname, desc)
                 #print sB,
                 #print ">>>>"
+            if desde is None: break
             initline = linenum
             while linenum < len(linePosChar) and  linePosChar[linenum+1]<desde+2: linenum += 1
             startline = linenum 
@@ -204,6 +211,10 @@ def main():
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
 
+    parser.add_option("--debug",
+                    action="store_true", dest="debug", default=False,
+                    help="prints lots of useless messages")
+                    
     (options, args) = parser.parse_args()
     if options.optdebug:
         print options, args
@@ -217,7 +228,7 @@ def main():
         pfiles = []
         for file1 in filenames:
             #print "File:", file1
-            pf = processedFile(file1)
+            pf = processedFile(file1, debug = options.debug)
             pfiles.append(pf)
         #pfA = pfiles[0]
         #for pfB in pfiles[1:]:

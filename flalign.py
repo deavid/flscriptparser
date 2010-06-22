@@ -247,22 +247,34 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
             int(nlB) >= maxB and 
             int(nlC) >= maxC
             ): break
-        if int(nlA) >= maxA : lineaA = " "
+        lineaA = " "
+        sAB = cAB = lineaA = " "
+        sAC = cAC = lineaC = " "
+        if int(nlA) >= maxA : 
+            if int(nlA) - maxA > 0 : print "A overflow!", int(nlA) - maxA
+            lineaA = " "
         else: lineaA = A.sortednames[nlA]
         
         if int(nlB) >= maxB : 
             sAB = cAB = lineaA = " "
+            if int(nlB) - maxB > 0 :  print "B overflow!", int(nlB) - maxB
         else:
             lineaB = B.sortednames[nlB]
+        
+        if int(nlAB) < len(diffAB):
             sAB = diffAB[nlAB][0]
             cAB = diffAB[nlAB][2:]
             
         if int(nlC) >= maxC : 
             sAC = cAC = lineaC = " "
+            if int(nlC) - maxC > 0 : print "C overflow!", int(nlC) - maxC
         else:
             lineaC = C.sortednames[nlC]
+
+        if int(nlAC) < len(diffAC):
             sAC = diffAC[nlAC][0]
             cAC = diffAC[nlAC][2:]
+            
         #print nlA, nlB, nlC
         if sAB == " " and sAC == " ":
             AddPatchLine("A=")
@@ -279,11 +291,13 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
                     assert prefer in ["A","B","C"]
             if not quiet:
                 if lineaA!=cAB:
-                    print "B!    " , cAB
+                    print "A!=B  " , cAB
                 if lineaA!=cAC:
-                    print "C!    " , cAC
+                    print "A!=C  " , cAC
                 if lineaA != lineaB or lineaC != lineaA:
-                    print "wtf!?"
+                    print "wtf!?A:", lineaA
+                    print "wtf!?B:", lineaB
+                    print "wtf!?C:", lineaC
                 
             nlAB.next()
             nlAC.next()
@@ -399,14 +413,14 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
                 rs1 = re.search("class (\w+) extends (\w+)",text)
                 if rs1:
                     if lastclass != rs1.group(2):
-                        print "INFO: Changing >> class", thisclass, "extends",rs1.group(2), "--> extends", lastclass
+                        #print "INFO: Changing >> class", thisclass, "extends",rs1.group(2), "--> extends", lastclass
                         text = re.sub("class (\w+) extends (\w+)", "class %s extends %s" % (thisclass,lastclass),text)
                 rs2 = re.search("function .*%s\(.*context.*\) { (\w+)" % thisclass,text)
                 if rs2:
                     if lastclass != rs2.group(1):
                         badline = rs2.group(0)
                         goodline = badline.replace(rs2.group(1),lastclass)
-                        print "INFO: Changing >>", badline , "-->", goodline
+                        #print "INFO: Changing >>", badline , "-->", goodline
                         text = text.replace(badline,goodline)
                             
                 else:
@@ -414,7 +428,7 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
                 
         #if debug:
         #    fout.write("<<< %s || %s >>>\n" % (Fwhich, line))
-        #    fout.write("<<< %s (%d:%d) || %s >>>\n" % (Fwhich,int(linebegin),int(lineend), line))
+        #    fout.write("<<< (%d:%d) >>>\n" % (int(linebegin),int(lineend)))
         fout.write(text)
         
     
@@ -430,13 +444,13 @@ def main():
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
 
-    parser.add_option("--debug",
-                    action="store_true", dest="debug", default=False,
-                    help="debug output")
-
     parser.add_option("-q","--quiet",
                     action="store_true", dest="quiet", default=False,
                     help="don't print status messages to stdout")
+                    
+    parser.add_option("--debug",
+                    action="store_true", dest="debug", default=False,
+                    help="prints lots of useless messages")
 
     (options, args) = parser.parse_args()
     if options.optdebug:
@@ -462,7 +476,7 @@ def main():
            
     #addedAB, deletedAB = A.diffTo(B)
     #addedAC, deletedAC = A.diffTo(C)
-    is_debug = False
+    is_debug = options.debug
     writeAlignedFile(C, A, B, swap = True, debug= is_debug)
     writeAlignedFile(B, A, C, debug= is_debug)
     writeAlignedFile(B, A, C, prefer = "A", debug= is_debug)

@@ -572,6 +572,11 @@ def main():
     parser.add_option("--optdebug",
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
+                    
+    parser.add_option("--debug",
+                    action="store_true", dest="debug", default=False,
+                    help="prints lots of useless messages")
+                    
 
     (options, args) = parser.parse_args()
     if options.optdebug:
