@@ -46,17 +46,57 @@ class ProcessFile:
         
         return added, deleted
         
+class LineNumber:
+    def __init__(self, letter, lines):
+        self.nl=0
+        if len(letter)>1:
+            self.diffFrom = letter[0]
+        else:
+            self.diffFrom = None
+        self.error = None
+            
+        self.letter = letter[-1]
+        self.lines = lines
         
+    def line(self):
+        l = self.lines[self.nl]
+        if self.diffFrom:
+            return l[2:]
+        else:
+            return l[:]
+    
+    def symbol(self):        
+        l = self.lines[self.nl]
+        if self.diffFrom:
+            return l[0]
+        else:
+            return " "
+    
+    def next(self,t=1):
+        self.nl+=int(t)
+        
+    def __iadd__(self,other):
+        self.nl+=int(other)
+        return self
+        
+    def __int__(self):
+        return self.nl
+        
+    def __index__(self):
+        return self.nl
+    
+            
 def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = False):
     diffAB = list(difflib.ndiff(A.sortednames, B.sortednames))
     diffAC = list(difflib.ndiff(A.sortednames, C.sortednames))
     
-    nlA = 0
-    nlB = 0
-    nlC = 0
-    nlAB = 0
-    nlAC = 0
     
+    nlA = LineNumber("A",A.sortednames)
+    nlB = LineNumber("B",B.sortednames)
+    nlC = LineNumber("C",C.sortednames)
+    nlAB = LineNumber("AB", diffAB)
+    nlAC = LineNumber("AC", diffAC)
+                
     maxA = len(A.sortednames)
     maxB = len(B.sortednames)
     maxC = len(C.sortednames)
@@ -68,7 +108,7 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
         linefrom = None
         linetext = ""
         conflict = False
-        linenumbers = nlA,nlB,nlC 
+        linenumbers = int(nlA),int(nlB),int(nlC) 
         if modetype == "-":
             linetext = lineaA
             linefrom = "A"
@@ -138,25 +178,86 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
     DeletedB = []
     DeletedC = []
     ConflictMode = []
+    
+    def getVars(letter):
+        if letter=="B":
+            return nlA, nlB, nlC, nlAB, nlAC
+        if letter=="C":
+            return nlA, nlC, nlB, nlAC, nlAB
+        raise TypeError
             
+    def Patch(code):
+        letter = code[0]
+        sign = code[1]
+        nBase, nLocal, nRemote, nDiffLocal, nDiffRemote = getVars(letter)
+        
+        def Minus():
+            AddPatchLine(letter + "-")
+            if debug:
+                print letter + "-%04d" % int(nBase), nBase.line()
+            if nBase.line() != nDiffLocal.line() and not quiet:
+                print letter + "!    " , nDiffLocal.line()
+            if nDiffRemote.symbol()!=" " and not quiet:
+                if nDiffRemote.symbol()=="-":
+                    #Removing twice!
+                    nBase.error = "removing-twice"
+                else:
+                    print "??", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line()
+            else:
+                nRemote.next()
+        
+            nDiffLocal.next()
+            nDiffRemote.next()
+            nBase.next()
+    
+        def Plus():
+            AddPatchLine(letter + "+")
+            if debug:
+                print letter + "+%04d" % int(nLocal), nLocal.line()
+            if nLocal.line()!=nDiffLocal.line() and not quiet:
+                print letter + "!    " , nDiffLocal.line()
+            if nBase.error == "removing-twice":
+                nBase.error = None
+                while nDiffRemote.symbol() == "?": 
+                    nDiffRemote.next()
+                if nDiffRemote.symbol() == "+":
+                    if not quiet:
+                        print "!~", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line()
+                    nDiffRemote.next()
+                    nRemote.next()
+                
+            
+            nDiffLocal.next()
+            nLocal.next()
+
+        def Info():
+            #if debug:  print letter + "?>   " , nDiffLocal.line()
+            nDiffLocal.next()
+
+        if   sign == "-": Minus()
+        elif sign == "+": Plus()
+        elif sign == "?": Info()
+    
+    
+    
     while True:
         
         if (
-            nlA >= maxA and 
-            nlB >= maxB and 
-            nlC >= maxC
+            int(nlA) >= maxA and 
+            int(nlB) >= maxB and 
+            int(nlC) >= maxC
             ): break
-        if nlA >= maxA : lineaA = " "
+        if int(nlA) >= maxA : lineaA = " "
         else: lineaA = A.sortednames[nlA]
         
-        if nlB >= maxB : 
+        if int(nlB) >= maxB : 
             sAB = cAB = lineaA = " "
         else:
             lineaB = B.sortednames[nlB]
             sAB = diffAB[nlAB][0]
             cAB = diffAB[nlAB][2:]
             
-        if nlC >= maxC : 
+        if int(nlC) >= maxC : 
             sAC = cAC = lineaC = " "
         else:
             lineaC = C.sortednames[nlC]
@@ -184,83 +285,19 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
                 if lineaA != lineaB or lineaC != lineaA:
                     print "wtf!?"
                 
-            nlAB += 1
-            nlAC += 1
-            nlA += 1
-            nlB += 1
-            nlC += 1
-        elif swap and sAB=="+":
-            AddPatchLine("B+")
-            if debug:
-                print "B+%04d" % nlB, lineaB
-            if lineaB!=cAB and not quiet:
-                print "B!    " , cAB
-                
-            nlAB += 1
-            nlB += 1
-        elif sAC=="+":
-            AddPatchLine("C+")
-            if debug:
-                print "C+%04d" % nlC, lineaC
-            if not quiet and lineaC!=cAC:
-                print "C!    " , cAC
-            nlAC += 1
-            nlC += 1
-        elif sAC=="?":
-            nlAC += 1
-            if debug:
-                print "?>    " , cAC
-
-        elif sAB=="+":
-            AddPatchLine("B+")
-            if debug:
-                print "B+%04d" % nlB, lineaB
-            if lineaB!=cAB and not quiet:
-                print "B!    " , cAB
-                
-            nlAB += 1
-            nlB += 1
-        elif sAB=="?":
-            nlAB += 1
-            if debug:
-                print "?>    " , cAB
-            
-        elif swap and sAB=="-":
-            AddPatchLine("B-")
-            if debug:
-                print "B-%04d" % nlA, lineaA
-            if lineaA!=cAB and not quiet:
-                print "B!    " , cAB
-            if sAC!=" " and not quiet:
-                print "?? C", sAC,cAC
-            nlAB += 1
-            nlAC += 1
-            nlA += 1
-            nlC += 1
-        elif sAC=="-":
-            AddPatchLine("C-")
-            if debug:
-                print "C-%04d" % nlA, lineaA
-            if lineaA!=cAC and not quiet:
-                print "C!    " , cAC
-            if sAB!=" " and not quiet:
-                print "?? B", sAB,cAB
-            nlAC += 1
-            nlAB += 1
-            nlA += 1
-            nlB += 1
-        elif sAB=="-":
-            AddPatchLine("B-")
-            if debug:
-                print "B-%04d" % nlA, lineaA
-            if lineaA!=cAB and not quiet:
-                print "B!    " , cAB
-            if sAC!=" " and not quiet:
-                print "?? C", sAC,cAC
-            nlAB += 1
-            nlAC += 1
-            nlA += 1
-            nlC += 1
+            nlAB.next()
+            nlAC.next()
+            nlA.next()
+            nlB.next()
+            nlC.next()
+        elif swap and sAB=="+": Patch("B+")
+        elif sAC=="+": Patch("C+")
+        elif sAC=="?": Patch("C?")
+        elif sAB=="+": Patch("B+")
+        elif sAB=="?": Patch("B?")
+        elif swap and sAB=="-": Patch("B-")
+        elif sAC=="-": Patch("C-")
+        elif sAB=="-": Patch("B-")
         else:
             if not quiet:
                 print sAB,"*", sAC
@@ -374,8 +411,9 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
                 else:
                     print text[:64]
                 
-        if debug:
-            fout.write("<<< %s (%d:%d) || %s >>>\n" % (Fwhich,int(linebegin),int(lineend), line))
+        #if debug:
+        #    fout.write("<<< %s || %s >>>\n" % (Fwhich, line))
+        #    fout.write("<<< %s (%d:%d) || %s >>>\n" % (Fwhich,int(linebegin),int(lineend), line))
         fout.write(text)
         
     
@@ -413,7 +451,7 @@ def main():
         print "MUST have exactly 3 files to align."
     pfiles = []        
     for file1 in filenames:
-        print "Load File:", file1
+        #print "Load File:", file1
         pf = ProcessFile(file1)
         pfiles.append(pf)
 

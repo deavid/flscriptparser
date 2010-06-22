@@ -601,7 +601,8 @@ def main():
     prog = "$$$"
     if len(args) > 0 :                               
         for filename in args:
-            sys.stderr.write("Processing %s ..." % filename)
+            fs = filename.split("/")
+            sys.stderr.write("Loading %s ..." % fs[-1])
             sys.stderr.flush()
             data = open(filename).read()                  
             sys.stderr.write(" parsing ...")

@@ -79,7 +79,7 @@ class processedFile:
                 fB.seek(bdesde)
                 sB = fB.read((bhasta-bdesde)+1)
             
-                #while linenum < len(linePosChar) and  linePosChar[linenum+1]<bdesde: linenum += 1
+                while linenum < len(linePosChar) and linePosChar[linenum+1]<bdesde: linenum += 1
                 startline = linenum
                 while linenum < len(linePosChar) and linePosChar[linenum+1]<bhasta+1: linenum += 1
                 endline = linenum 
@@ -92,6 +92,12 @@ class processedFile:
                 beginline = startline
                 bblocks = []
                 blockdesc = []
+                if len(sB.splitlines(1)) != endline-startline+1:
+                    
+                    print "Block lines doesnt match:", len(sB.splitlines(1)), startline, endline
+                    print linePosChar[startline-1:startline+2],bdesde
+                    print linePosChar[endline-1:endline+2],bhasta
+                    print repr(sB.splitlines(1))
                 for line in sB.splitlines(1):
                     nline += 1
                     if line[-1]!='\n': break
@@ -210,7 +216,7 @@ def main():
     if len(filenames):
         pfiles = []
         for file1 in filenames:
-            print "File:", file1
+            #print "File:", file1
             pf = processedFile(file1)
             pfiles.append(pf)
         #pfA = pfiles[0]
@@ -509,11 +515,11 @@ def process(filename):
     list_hashes = []
     
     for d,idx in treebydepth.iteritems():
-        if d > 1: break
+        if d > 2: break
         nitems = len(idx)
         if maxitems < nitems: maxitems = nitems
         elif nitems * 2 < maxitems: break
-        print "Depth:", d, "(%d items)" % nitems
+        #print "Depth:", d, "(%d items)" % nitems
         maxd = d
         for k in idx:
             #print ".".join([str(x) for x in k])
