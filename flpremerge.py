@@ -79,7 +79,7 @@ class processedFile:
                 fB.seek(bdesde)
                 sB = fB.read((bhasta-bdesde)+1)
             
-                while linenum < len(linePosChar) and linePosChar[linenum+1]<bdesde: linenum += 1
+                while linenum < len(linePosChar) and linePosChar[linenum+1]<=bdesde: linenum += 1
                 startline = linenum
                 while linenum < len(linePosChar) and linePosChar[linenum+1]<bhasta+1: linenum += 1
                 endline = linenum 
@@ -94,9 +94,9 @@ class processedFile:
                 blockdesc = []
                 if len(sB.splitlines(1)) != endline-startline+1:
                     
-                    print "Block lines doesnt match:", len(sB.splitlines(1)), startline, endline
-                    print linePosChar[startline-1:startline+2],bdesde
-                    print linePosChar[endline-1:endline+2],bhasta
+                    print "Block lines doesnt match:", len(sB.splitlines(1)), endline-startline, startline, endline
+                    print linePosChar[startline-2:startline+3],bdesde
+                    print linePosChar[endline-2:endline+3],bhasta
                     print repr(sB.splitlines(1))
                 for line in sB.splitlines(1):
                     nline += 1

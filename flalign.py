@@ -385,6 +385,7 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
         text = "".join(
                 F[Fwhich].lines[int(linebegin):int(lineend)]
             )
+        text = text.replace("\t","        ")
         sline = line.split(":")
         if sline[0]=="classdeclaration":
             if len(classlist):
