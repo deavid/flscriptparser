@@ -7,19 +7,32 @@ SRC_START_COMMIT=""
 SRC_END_COMMIT="HEAD"
 DST_PROJECT=$(pwd)
 DST_APPLY_COMMIT="HEAD"
+TYPE_CS=""
+TYPE_BL=""
 
 show_help() {
     echo "  $(basename $0) [options]"
     echo
-    echo " -- options --"
+    echo " ## options ##"
     echo 
-    echo " --src="
-    echo " --dst="
-    echo " --start="
-    echo " --end="
-    echo " --apply="
-    echo " --help      -- shows this help message"
+    echo " --src=FOLDER   -- sets FOLDER as the source project"
+    echo " --dst=FOLDER   -- sets FOLDER as the dest project"
+    echo " --start=COMMIT -- sets COMMIT as the source start commit"
+    echo " --end=COMMIT   -- sets COMMIT as the source end commit"
+    echo " --apply=COMMIT -- sets COMMIT as the dest apply commit"
+    echo " --help         -- shows this help message"
+    echo " --cs=(m|l|r)   -- sets the default action for Both Created"
+    echo "                   m: 2-way merge   l: use local   r: use remote"
+    echo " --bl=(b|i)     -- sets the default action for Local Deleted"
+    echo "                   b: delete        i: include remote"
     echo
+    echo " ## examples ## "
+    echo
+    echo " Default Invocation:"
+    echo "  $(basename $0) --src=../otherprj --start=origin/base-code --end=dev-code "
+    echo
+    echo
+    
     
 }
 
@@ -139,7 +152,15 @@ while read -a line; do
 done < <(git diff --numstat "$SRC_START_COMMIT" "$SRC_END_COMMIT")
 unset IFS
 
-
+git_show() {
+    local commit="$1"
+    local src="$2"
+    local dst="$3"
+    git show "$commit":"$src" >"$dst" 2>/dev/null || {
+        unlink "$dst"
+    }
+    
+}
 # 2.- Para cada fichero en la diferencia, extraer las versiones BASE y REMOTE
 for filename in "${FILE_LIST[@]}"; do
     basename=$(basename "$filename")
@@ -150,8 +171,8 @@ for filename in "${FILE_LIST[@]}"; do
     fi
     # Ojo! si el fichero ha sido creado, aparece en REMOTE pero NO aparece en BASE
     # Ojo^2! si el fichero ha sido borrado, aparece en BASE pero NO aparece en REMOTE
-    git show "$SRC_START_COMMIT":"$filename" > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.BASE$fileext"
-    git show "$SRC_END_COMMIT":"$filename"   > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.REMOTE$fileext"
+    git_show $SRC_START_COMMIT "$filename" "$DST_PROJECT/$filename.BASE$fileext"
+    git_show $SRC_END_COMMIT "$filename" "$DST_PROJECT/$filename.REMOTE$fileext"
 done
 
 
@@ -166,7 +187,7 @@ for filename in "${FILE_LIST[@]}"; do
         fileext="" 
     fi
 
-    git show "$DST_APPLY_COMMIT":"$filename" > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.LOCAL$fileext"
+    git_show $DST_APPLY_COMMIT "$filename" "$DST_PROJECT/$filename.LOCAL$fileext"
 done
 
 
@@ -190,13 +211,13 @@ for filename in "${FILE_LIST[@]}"; do
         # MEZCLA A 3
         #echo "EXT: $fileext;"     
         case $fileext in 
-        .qs) flmergetool $MERGE $BASE $LOCAL $REMOTE ;;
-        .ui) cp "$LOCAL" "$MERGE"; fldesigner $BASE $REMOTE $MERGE;;
+        .qs) flmergetool "$MERGE" "$BASE" "$LOCAL" "$REMOTE" ;;
+        .ui) cp "$LOCAL" "$MERGE"; fldesigner "$BASE" "$REMOTE" "$MERGE" ;;
     #    mtd)
     #    xml)
     #    kut)
     #    qry)
-        *)  kdiff3 --auto $BASE $LOCAL $REMOTE -o $MERGE >/dev/null 2>&1 ;;
+        *)  kdiff3 --auto "$BASE" "$LOCAL" "$REMOTE" -o "$MERGE" >/dev/null 2>&1 ;;
         esac
         if [[ $? == 0 ]] ; then
             git add "$MERGE"
@@ -216,18 +237,20 @@ for filename in "${FILE_LIST[@]}"; do
         rm "$BASE" "$REMOTE" # igoramos realmente el fichero.
     elif test \( \! -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # CREACION SIMULTANEA
-        echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
-        echo "(para recordar esta respuesta las proximas veces escriba: m* l* r*)"
-        question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
-        read -p "$question" answer 
-        type="${answer:0:1}"
-        remember=0
-        [[ ${answer:1:1} == "*" ]] && remember=1
-        
-        case "${type}" in
-        m) kdiff3 $LOCAL $REMOTE -o $MERGE >/dev/null 2>&1  ;;
-        l) cp $LOCAL $MERGE ;;
-        r) cp $REMOTE $MERGE ;;
+        if [[ $TYPE_CS ]] ; then
+            type=$TYPE_CS
+        else
+            echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
+            echo "(para recordar esta respuesta las proximas veces escriba: m* l* r*)"
+            question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
+            read -p "$question" answer 
+            type="${answer:0:1}"
+            [[ ${answer:1:1} == "*" ]] && TYPE_CS=$type
+        fi
+        case "$type" in
+        m) kdiff3 "$LOCAL" "$REMOTE" -o "$MERGE" >/dev/null 2>&1  ;;
+        l) cp "$LOCAL" "$MERGE" ;;
+        r) cp "$REMOTE" "$MERGE" ;;
         *) echo "Unexpected type"; [[ "" ]] ;;
         esac
         if [[ $? == 0 ]] ; then
@@ -239,13 +262,16 @@ for filename in "${FILE_LIST[@]}"; do
         
     elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # BORRADO LOCAL
-        echo "El fichero $MERGE no existe en este proyecto pero si fue modificado en el parche"
-        echo "(para recordar esta respuesta las proximas veces escriba: b* i*)"
-        $question="Elija una opcion [(b)orrar|(i)ncluir]: "
-        read -p "$question" answer 
-        type="${answer:0:1}"
-        remember=0
-        [[ ${answer:1:1} == "*" ]] && remember=1
+        if [[ $TYPE_BL ]] ; then
+            type=$TYPE_BL
+        else
+            echo "El fichero $MERGE no existe en este proyecto pero si fue modificado en el parche"
+            echo "(para recordar esta respuesta las proximas veces escriba: b* i*)"
+            $question="Elija una opcion [(b)orrar|(i)ncluir]: "
+            read -p "$question" answer 
+            type="${answer:0:1}"
+            [[ ${answer:1:1} == "*" ]] && TYPE_BL=$type
+        fi
         
         case "${type}" in
         b) rm "$BASE" "$REMOTE" && git rm "$MERGE" ;;
