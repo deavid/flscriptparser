@@ -150,8 +150,8 @@ for filename in "${FILE_LIST[@]}"; do
     fi
     # Ojo! si el fichero ha sido creado, aparece en REMOTE pero NO aparece en BASE
     # Ojo^2! si el fichero ha sido borrado, aparece en BASE pero NO aparece en REMOTE
-    git show "$SRC_START_COMMIT":"$filename" > "$DST_PROJECT/$filename.BASE$fileext" 2>/dev/null
-    git show "$SRC_END_COMMIT":"$filename"   > "$DST_PROJECT/$filename.REMOTE$fileext" 2>/dev/null
+    git show "$SRC_START_COMMIT":"$filename" > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.BASE$fileext"
+    git show "$SRC_END_COMMIT":"$filename"   > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.REMOTE$fileext"
 done
 
 
@@ -166,7 +166,7 @@ for filename in "${FILE_LIST[@]}"; do
         fileext="" 
     fi
 
-    git show "$DST_APPLY_COMMIT":"$filename"   > "$DST_PROJECT/$filename.LOCAL$fileext" 2>/dev/null
+    git show "$DST_APPLY_COMMIT":"$filename" > "/tmp/.tmpfile" 2>/dev/null && mv /tmp/.tmpfile "$DST_PROJECT/$filename.LOCAL$fileext"
 done
 
 
@@ -185,13 +185,13 @@ for filename in "${FILE_LIST[@]}"; do
     LOCAL="$filename.LOCAL$fileext"
     REMOTE="$filename.REMOTE$fileext"
     
-    if test \( -f "$BASE" \) \( -f "$LOCAL" \) \( -f "$REMOTE" \) ; then
+    if test \( -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( -f "$REMOTE" \) ; then
     
         # MEZCLA A 3
-             
+        #echo "EXT: $fileext;"     
         case $fileext in 
-        qs) flmergetool $MERGE $BASE $LOCAL $REMOTE ;;
-        ui) fldesigner $BASE $LOCAL $REMOTE ;;
+        .qs) flmergetool $MERGE $BASE $LOCAL $REMOTE ;;
+        .ui) fldesigner $BASE $LOCAL $REMOTE ;;
     #    mtd)
     #    xml)
     #    kut)
@@ -204,21 +204,48 @@ for filename in "${FILE_LIST[@]}"; do
             echo "Fallo en la mezcla"
             # aqui podemos preguntar al usuario
         fi
-    elif test \( \! -f "$BASE" \) \( \! -f "$LOCAL" \) \( -f "$REMOTE" \)  ; then
+    elif test \( \! -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # FICHERO CREADO
         cp "$BASE" "$MERGE"
         git add "$MERGE"
-    elif test \( -f "$BASE" \) \( -f "$LOCAL" \) \( \! -f "$REMOTE" \)  ; then
+    elif test \( -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( \! -f "$REMOTE" \)  ; then
         # FICHERO BORRADO
         git rm "$MERGE"
-    elif test \( -f "$BASE" \) \( \! -f "$LOCAL" \) \( \! -f "$REMOTE" \)  ; then
+    elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( \! -f "$REMOTE" \)  ; then
         # FICHERO BORRADO EN LOS DOS EXTREMOS
         rm "$BASE" "$REMOTE" # igoramos realmente el fichero.
-    elif test \( \! -f "$BASE" \) \( -f "$LOCAL" \) \( -f "$REMOTE" \)  ; then
+    elif test \( \! -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # CREACION SIMULTANEA
         echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
-        $question="Elija una opcion [(m)erge|(l)ocal|(r)remoto]:"
+        echo "(para recordar esta respuesta las proximas veces escriba: m* l* r*)"
+        $question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
         read -p "$question" answer 
+        type="${answer:0:1}"
+        remember=0
+        [[ ${answer:1:1} == "*" ]] && remember=1
+        
+        case "${type}" in
+        m) echo "merge" ;;
+        l) echo "local" ;;
+        r) echo "remote" ;;
+        *) echo "Unexpected type" ;;
+        esac
+        
+    elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
+        # BORRADO LOCAL
+        echo "El fichero $MERGE no existe en este proyecto pero si fue modificado en el parche"
+        echo "(para recordar esta respuesta las proximas veces escriba: b* i*)"
+        $question="Elija una opcion [(b)orrar|(i)ncluir]: "
+        read -p "$question" answer 
+        type="${answer:0:1}"
+        remember=0
+        [[ ${answer:1:1} == "*" ]] && remember=1
+        
+        case "${type}" in
+        b) echo "borrar" ;;
+        i) echo "incluir" ;;
+        *) echo "Unexpected type" ;;
+        esac
         
     else
         echo "Ha ocurrido algun error anteriormente"
