@@ -130,19 +130,110 @@ is_valid_git_commit "$DST_PROJECT" "$DST_APPLY_COMMIT" || {
 
 # 1.- Calcular lista de ficheros que componen la diferencia en SRC
 
-# 2.- Para cada fichero en la diferencia, extraer las versiones BASE y REMOTE
+FILE_LIST=()
+pushd "$SRC_PROJECT" >/dev/null
+IFS=$'\t'
+while read -a line; do
+    FILE_LIST+=("${line[2]}")
+    #echo "${line[2]}"
+done < <(git diff --numstat "$SRC_START_COMMIT" "$SRC_END_COMMIT")
+unset IFS
 
+
+# 2.- Para cada fichero en la diferencia, extraer las versiones BASE y REMOTE
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+    # Ojo! si el fichero ha sido creado, aparece en REMOTE pero NO aparece en BASE
+    # Ojo^2! si el fichero ha sido borrado, aparece en BASE pero NO aparece en REMOTE
+    git show "$SRC_START_COMMIT":"$filename" > "$DST_PROJECT/$filename.BASE$fileext" 2>/dev/null
+    git show "$SRC_END_COMMIT":"$filename"   > "$DST_PROJECT/$filename.REMOTE$fileext" 2>/dev/null
+done
+
+
+popd  >/dev/null
 # 3.- Para cada fichero en la diferencia, extraer la versión LOCAL
+pushd "$DST_PROJECT" >/dev/null
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+
+    git show "$DST_APPLY_COMMIT":"$filename"   > "$DST_PROJECT/$filename.LOCAL$fileext" 2>/dev/null
+done
+
 
 # 4.- Para cada fichero en la diferencia, ejecutar el 
 #     sistema de mezcla adecuado ** segun EXTENSION**
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+    
+    MERGE="$filename"
+    BASE="$filename.BASE$fileext" 
+    LOCAL="$filename.LOCAL$fileext"
+    REMOTE="$filename.REMOTE$fileext"
+    
+    if test \( -f "$BASE" \) \( -f "$LOCAL" \) \( -f "$REMOTE" \) ; then
+    
+        # MEZCLA A 3
+             
+        case $fileext in 
+        qs) flmergetool $MERGE $BASE $LOCAL $REMOTE ;;
+        ui) fldesigner $BASE $LOCAL $REMOTE ;;
+    #    mtd)
+    #    xml)
+    #    kut)
+    #    qry)
+        *)  kdiff3 --auto $BASE $LOCAL $REMOTE -o $MERGE >/dev/null 2>&1 ;;
+        esac
+        if [[ $? == 0 ]] ; then
+            git add "$MERGE"
+        else
+            echo "Fallo en la mezcla"
+            # aqui podemos preguntar al usuario
+        fi
+    elif test \( \! -f "$BASE" \) \( \! -f "$LOCAL" \) \( -f "$REMOTE" \)  ; then
+        # FICHERO CREADO
+        cp "$BASE" "$MERGE"
+        git add "$MERGE"
+    elif test \( -f "$BASE" \) \( -f "$LOCAL" \) \( \! -f "$REMOTE" \)  ; then
+        # FICHERO BORRADO
+        git rm "$MERGE"
+    elif test \( -f "$BASE" \) \( \! -f "$LOCAL" \) \( \! -f "$REMOTE" \)  ; then
+        # FICHERO BORRADO EN LOS DOS EXTREMOS
+        rm "$BASE" "$REMOTE" # igoramos realmente el fichero.
+    elif test \( \! -f "$BASE" \) \( -f "$LOCAL" \) \( -f "$REMOTE" \)  ; then
+        # CREACION SIMULTANEA
+        echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
+        $question="Elija una opcion [(m)erge|(l)ocal|(r)remoto]:"
+        read -p "$question" answer 
+        
+    else
+        echo "Ha ocurrido algun error anteriormente"
+    fi
+done
+
 
 # 5.- Para cada mezcla finalizada, añadirla al proyecto DST (git add)
+
+
 
 # 6.- Si todos los ficheros se mezclaron sin error:
 #     hacer un commit, proponer un mensaje de commit.
 
-
+popd >/dev/null
 
 
 
