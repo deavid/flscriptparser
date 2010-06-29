@@ -191,7 +191,7 @@ for filename in "${FILE_LIST[@]}"; do
         #echo "EXT: $fileext;"     
         case $fileext in 
         .qs) flmergetool $MERGE $BASE $LOCAL $REMOTE ;;
-        .ui) fldesigner $BASE $LOCAL $REMOTE ;;
+        .ui) cp "$LOCAL" "$MERGE"; fldesigner $BASE $REMOTE $MERGE;;
     #    mtd)
     #    xml)
     #    kut)
