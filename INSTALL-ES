@@ -2,6 +2,9 @@ Parseador de Código fuente tipo Javascript para AbanQ
 -------------------------------------------------------
 
 DEPENDENCIAS:
+- python-ply
+- git-core
+- realpath
 
 flscriptparser depende únicamente del proyecto PLY de Python.
 
