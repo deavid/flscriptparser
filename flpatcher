@@ -47,6 +47,8 @@ process_argument() {
     start) SRC_START_COMMIT="$value" ;;
     end) SRC_END_COMMIT="$value" ;;
     apply) DST_APPLY_COMMIT="$value" ;;
+    cs) TYPE_CS="$value" ;;
+    bl) TYPE_BL="$value" ;;
     help) show_help; exit 0;;
     *) echo "Unexpected argument '$argname'"; return 1 ;;
     esac
