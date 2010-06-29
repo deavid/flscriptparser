@@ -206,7 +206,7 @@ for filename in "${FILE_LIST[@]}"; do
         fi
     elif test \( \! -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # FICHERO CREADO
-        cp "$BASE" "$MERGE"
+        cp "$REMOTE" "$MERGE"
         git add "$MERGE"
     elif test \( -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( \! -f "$REMOTE" \)  ; then
         # FICHERO BORRADO
@@ -218,18 +218,24 @@ for filename in "${FILE_LIST[@]}"; do
         # CREACION SIMULTANEA
         echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
         echo "(para recordar esta respuesta las proximas veces escriba: m* l* r*)"
-        $question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
+        question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
         read -p "$question" answer 
         type="${answer:0:1}"
         remember=0
         [[ ${answer:1:1} == "*" ]] && remember=1
         
         case "${type}" in
-        m) echo "merge" ;;
-        l) echo "local" ;;
-        r) echo "remote" ;;
-        *) echo "Unexpected type" ;;
+        m) kdiff3 $LOCAL $REMOTE -o $MERGE >/dev/null 2>&1  ;;
+        l) cp $LOCAL $MERGE ;;
+        r) cp $REMOTE $MERGE ;;
+        *) echo "Unexpected type"; [[ "" ]] ;;
         esac
+        if [[ $? == 0 ]] ; then
+            git add "$MERGE"
+        else
+            echo "Fallo en la mezcla"
+            # aqui podemos preguntar al usuario
+        fi
         
     elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
         # BORRADO LOCAL
@@ -242,8 +248,8 @@ for filename in "${FILE_LIST[@]}"; do
         [[ ${answer:1:1} == "*" ]] && remember=1
         
         case "${type}" in
-        b) echo "borrar" ;;
-        i) echo "incluir" ;;
+        b) rm "$BASE" "$REMOTE" && git rm "$MERGE" ;;
+        i) cp "$REMOTE" "$MERGE" && git add "$MERGE";;
         *) echo "Unexpected type" ;;
         esac
         
