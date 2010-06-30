@@ -269,7 +269,7 @@ for filename in "${FILE_LIST[@]}"; do
         else
             echo "El fichero $MERGE no existe en este proyecto pero si fue modificado en el parche"
             echo "(para recordar esta respuesta las proximas veces escriba: b* i*)"
-            $question="Elija una opcion [(b)orrar|(i)ncluir]: "
+            question="Elija una opcion [(b)orrar|(i)ncluir]: "
             read -p "$question" answer 
             type="${answer:0:1}"
             [[ ${answer:1:1} == "*" ]] && TYPE_BL=$type
