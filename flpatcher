@@ -111,9 +111,13 @@ is_valid_git_commit() {
     local gitfolder="$1"
     local commit="$2"
     (
+        local COMMIT_LINE=""
         cd "$gitfolder" || exit 1
         [[ "$commit" ]] || exit 2
-        git log "$commit" --pretty=oneline --abbrev-commit -1 >/dev/null 2>&1 || exit 3
+        COMMIT_LINE=$(git log "$commit" --pretty=oneline --abbrev=8 --abbrev-commit -1 2>/dev/null)
+        [[ $? != 0 ]] || exit 3
+        LAST_VALID_COMMIT_ID=${COMMIT_LINE:0:8}
+        LAST_VALID_COMMIT_MSG=${COMMIT_LINE:9}
     )
     return $?
 }
@@ -133,14 +137,22 @@ is_valid_git_commit "$SRC_PROJECT" "$SRC_START_COMMIT" || {
     echo "El commit inicial <$SRC_START_COMMIT> no es valido." >&2; 
     exit 1;
 }
+SRC_START_COMMIT=$LAST_VALID_COMMIT_ID
+SRC_START_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
+
 is_valid_git_commit "$SRC_PROJECT" "$SRC_END_COMMIT" || {
     echo "El commit final <$SRC_END_COMMIT> no es valido." >&2; 
     exit 1;
 }
+SRC_END_COMMIT=$LAST_VALID_COMMIT_ID
+SRC_END_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
+
 is_valid_git_commit "$DST_PROJECT" "$DST_APPLY_COMMIT" || {
     echo "El commit a aplicar <$DST_APPLY_COMMIT> no es valido." >&2; 
     exit 1;
 }
+DST_APPLY_COMMIT=$LAST_VALID_COMMIT_ID
+DST_APPLY_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
 
 
 # 1.- Calcular lista de ficheros que componen la diferencia en SRC
@@ -283,7 +295,7 @@ for filename in "${FILE_LIST[@]}"; do
         case "${type}" in
         b) rm "$BASE" "$REMOTE" && git rm "$MERGE" ;;
         i) cp "$REMOTE" "$MERGE" && git add "$MERGE";;
-        *) echo "Unexpected type" ;;
+        *) echo "Unexpected type" ;; 
         esac
         
     else
@@ -301,6 +313,21 @@ done
 
 # 6.- Si todos los ficheros se mezclaron sin error:
 #     hacer un commit, proponer un mensaje de commit.
+GIT_MSGFILE="$DST_PROJECT/.git/GITGUI_MSG" 
+echo "patch: $SRC_START_COMMIT..$SRC_END_COMMIT > $DST_APPLY_COMMIT -- $SRC_PROJECT" > $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+echo "project: $SRC_PROJECT" >> $GIT_MSGFILE
+echo "start: $SRC_START_COMMIT $SRC_START_COMMIT_MSG" >> $GIT_MSGFILE
+echo "end: $SRC_END_COMMIT $SRC_END_COMMIT_MSG" >> $GIT_MSGFILE
+echo "applied: $DST_APPLY_COMMIT $DST_APPLY_COMMIT_MSG" >> $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+echo " -- files patched: " >> $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+for filename in "${FILE_LIST[@]}"; do
+    echo "    $filename" >> $GIT_MSGFILE
+done
+echo "" >> $GIT_MSGFILE
+
 
 popd >/dev/null
 
