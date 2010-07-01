@@ -31,14 +31,48 @@ class JSON_Base:
     Possible Format:
     
     List-per-tag:
-    [ depth, tagname, attrs, textdata ]
+    [ depth, tagname, attrs, ttype, tdata ]
+    
+    depth: 0,1,2,3,4...N
     
     tagname: \w+ -> ElementTag
     tagname: !\w+ -> DoctypeTag
-    tagname: ?\w+ -> XmlDeclTag
+    tagname: ?\w+ -> XmlDeclTag (always: xml) (attrs = version, encoding?, standalone?)
+    tagname: #\w+ -> CommentTag (always: comment) (attrs = []) (tdata = comment)
+    
+    attrs: dict { attr : val , attr2 : val2 }
+    
+    ttype: text|cdata|mixed -multiline?
+    
+    tdata: raw text + cdata combined.
+    
     
     Problems:
     * Handling C-DATA
+    * Handling multiline texts
+    * Handling tabs and spaces at the start of each line of multiline text
+    * Handling comments
+    
+    Non-treated:
+    * NameSpaces 
+        <edi:price xmlns:edi='http://ecommerce.example.org/schema' units='Euro'>32.18</edi:price>
+        
+    * Entity Declarations
+        <!ENTITY name PUBLIC "public_ID" "URI">
+        
+    * Element Declarations
+        <!ELEMENT author (#PCDATA)>
+        
+    * Notation Declarations
+        <!NOTATION name PUBLIC "public_ID" "URI">
+        
+    * Attribute List Delcarations
+        <!ATTLIST title 
+             edition (CDATA) #REQUIRED
+             type (paper|cloth|hard)"paper">
+    
+    
+    
     
     Example 1: AbanQ UI (UTF-8)
         StartDoctypeDeclHandler: 'UI' None None 0
@@ -159,11 +193,23 @@ class JSON_Converter(JSON_Base):
     def StartElementHandler(self, name, attributes):
         printr( "StartElementHandler:", name, attributes)
         
+    def CharacterDataHandler(self, data):
+        printr( "CharacterDataHandler:", data)
+        
     def EndElementHandler(self, name):
         printr( "EndElementHandler:", name)
 
     def XmlDeclHandler(self, version, encoding, standalone):
         printr( "XmlDeclHandler:", version, encoding, standalone)
+        
+    def CommentHandler(self, data):
+        printr( "CommentHandler:", data)
+        
+    def StartCdataSectionHandler(self):
+        printr( "StartCdataSectionHandler:")
+        
+    def EndCdataSectionHandler(self):
+        printr( "EndCdataSectionHandler:")
     
     def StartDoctypeDeclHandler(self, doctypeName, systemId, publicId, has_internal_subset):
         printr( "StartDoctypeDeclHandler:", doctypeName, systemId, publicId, has_internal_subset)
@@ -180,9 +226,6 @@ class JSON_Converter(JSON_Base):
     def ProcessingInstructionHandler(self, target, data):
         printr( "ProcessingInstructionHandler:", target, data)
         
-    def CharacterDataHandler(self, data):
-        printr( "CharacterDataHandler:", data)
-        
     def EntityDeclHandler(self, entityName, is_parameter_entity, value, base, systemId, publicId, notationName):
         printr( "EntityDeclHandler:" , entityName, is_parameter_entity, value, base, systemId, publicId, notationName)
                 
@@ -194,15 +237,6 @@ class JSON_Converter(JSON_Base):
 
     def EndNamespaceDeclHandler(self, prefix):
         printr( "EndNamespaceDeclHandler:", prefix)
-        
-    def CommentHandler(self, data):
-        printr( "CommentHandler:", data)
-        
-    def StartCdataSectionHandler(self):
-        printr( "StartCdataSectionHandler:")
-        
-    def EndCdataSectionHandler(self):
-        printr( "EndCdataSectionHandler:")
         
     def DefaultHandler(self,data):
         printr( "Unhandled data:", data)
