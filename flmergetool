@@ -63,6 +63,7 @@ else
     exit 1
 fi
 
+(
 for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
     is_done=1
     until [[ $is_done == 0 ]]
@@ -135,3 +136,14 @@ else
     echo "KDIFF3 FAILED"
     exit 1
 fi
+) 
+
+for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
+    unlink "$file1.xml"
+    unlink "$file1.blocks"
+    unlink "$file1.aligned"
+    unlink "$file1.hash"
+fi
+
+
+exit $?;

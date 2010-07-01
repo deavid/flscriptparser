@@ -154,13 +154,18 @@ while read -a line; do
 done < <(git diff --numstat "$SRC_START_COMMIT" "$SRC_END_COMMIT")
 unset IFS
 
+TMP_FILES=()
+
 git_show() {
     local commit="$1"
     local src="$2"
     local dst="$3"
-    git show "$commit":"$src" >"$dst" 2>/dev/null || {
+    if git show "$commit":"$src" >"$dst" 2>/dev/null 
+    then
+        TMP_FILES+=("$dst")
+    else
         unlink "$dst"
-    }
+    fi
     
 }
 # 2.- Para cada fichero en la diferencia, extraer las versiones BASE y REMOTE
@@ -286,6 +291,9 @@ for filename in "${FILE_LIST[@]}"; do
     fi
 done
 
+for f in ${TMP_FILES[@]}; do
+    unlink "$f"
+done
 
 # 5.- Para cada mezcla finalizada, añadirla al proyecto DST (git add)
 
