@@ -2,6 +2,7 @@ import xml.parsers.expat
 import sys
 from optparse import OptionParser
 import re
+
 elements = []
 show_end = True
 lasttextdata = ""
