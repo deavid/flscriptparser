@@ -1,4 +1,11 @@
-import json
+try:
+    from json import dumps as json_dumps
+    from json import loads as json_loads
+except:
+    from json import write as json_dumps
+    from json import read as json_loads
+
+
 import xml.parsers.expat
 from optparse import OptionParser
 
@@ -6,6 +13,7 @@ from optparse import OptionParser
 #  python_var = json.loads("string_encoded_jsonvar")
 
 def printr(*args):
+    return
     print args[0],
     for arg in args[1:]:
         if type(arg) is unicode:
@@ -14,10 +22,52 @@ def printr(*args):
     print
 
 
+class xmlElement:
+    def __init__(self, parent, tagname, attrs = {}, ttype = "text", tdata = ""):
+        self.parent = parent
+            
+        self.tagname = tagname
+        self.attrs = attrs
+        self.ttype = ttype
+        self.tdata = tdata
+    
+        if self.parent:
+            self.depth = parent.depth + 1
+            self.path = self.parent.path + [self.tagname]
+        else:
+            self.depth = 0
+            self.path = [self.tagname]
+            
+    def append(self,text):
+        self.tdata += text
+    
+    def export(self,encoding):
+        depth = self.depth
+        tagname = self.tagname
+        attrs = [ [k,v] for k,v in self.attrs.iteritems() ]
+        attrs.sort()
+        tdata = self.tdata.strip()
+        ttype = self.ttype
+        
+        if len(tdata) == 0:
+            tdata = ""
+            ttype = ""
+        
+        #v = [depth,tagname,attrs,ttype,tdata]
+        #vt1 = json_dumps(v)
+        vt2 = "%d)%s" % (depth,tagname)
+        if attrs: vt2 +="\tattrs:" + json_dumps(attrs)
+        if ttype: vt2 +="\t%s:%s"  % ( ttype, json_dumps(tdata))
+        
+        return vt2.encode(encoding)
+        
+        
+
 class JSON_Base:
-    def __init__(self, finput, foutput):
+    def __init__(self, finput, foutput, encoding):
         self.finput = finput
         self.foutput = foutput
+        self.encoding = encoding
         
         self.init_vars()
         
@@ -165,7 +215,10 @@ class JSON_Base:
 class JSON_Converter(JSON_Base):
 
     def init_vars(self):
-        self.p = xml.parsers.expat.ParserCreate()
+        self.real_encoding = self.getRealEncoding()
+        self.xmltag = None
+        self.taglist = []
+        self.p = xml.parsers.expat.ParserCreate(self.real_encoding)
 
         self.p.StartElementHandler = self.StartElementHandler
         self.p.EndElementHandler = self.EndElementHandler
@@ -185,37 +238,106 @@ class JSON_Converter(JSON_Base):
         self.p.StartCdataSectionHandler = self.StartCdataSectionHandler
         self.p.EndCdataSectionHandler = self.EndCdataSectionHandler
         self.p.DefaultHandler = self.DefaultHandler
+
+    def getRealEncoding(self):
+        validEncodings = ["UTF-8", "UTF-16", "ISO-8859-1"]
+        self.encoding = self.encoding.upper()
+        
+        if self.encoding in validEncodings: return self.encoding
+        if self.encoding.find("UTF")>=0:
+            if self.encoding.find("8"):
+                return "UTF-8"
+            if self.encoding.find("16"):
+                return "UTF-16"
+            return "UTF-8"
+            
+        if self.encoding.find("ISO")>=0:
+            return "ISO-8859-1"
+            
+        if self.encoding.find("1252")>=0:
+            return "ISO-8859-1"
+            
+        if self.encoding.find("CP")==0:
+            return "ISO-8859-1"
+                
+        if self.encoding.find("WIN")==0:
+            return "ISO-8859-1"
+            
+        return "UTF-8"
+                
         
     def process(self):
         self.p.ParseFile(self.finput)
+        for tag in self.taglist:
+            self.foutput.write(tag.export(self.real_encoding)+"\n")
+    
+    def startTag(self,*args):
+        newtag = xmlElement(self.xmltag, *args)
+        self.xmltag = newtag
+        self.taglist.append(newtag)
+        return newtag
+    
+    def endTag(self):
+        self.xmltag = self.xmltag.parent
+        return self.xmltag
+    
+    
         
-        
+    
     def StartElementHandler(self, name, attributes):
         printr( "StartElementHandler:", name, attributes)
+        # tagname: \w+ -> ElementTag
+        self.startTag(name, attributes)
         
     def CharacterDataHandler(self, data):
         printr( "CharacterDataHandler:", data)
+        self.xmltag.append(data)
         
     def EndElementHandler(self, name):
         printr( "EndElementHandler:", name)
+        self.endTag()
 
     def XmlDeclHandler(self, version, encoding, standalone):
         printr( "XmlDeclHandler:", version, encoding, standalone)
+        # tagname: ?\w+ -> XmlDeclTag (always: xml) (attrs = version, encoding?, standalone?)
+        attrs = { 'version' : version }
+        if encoding: attrs['encoding'] = encoding
+        if standalone: attrs['standalone'] = standalone
+        
+        self.startTag("?xml", attrs)
+        
+        self.endTag()
         
     def CommentHandler(self, data):
         printr( "CommentHandler:", data)
+        # tagname: #\w+ -> CommentTag (always: comment) (attrs = []) (tdata = comment)
+        self.startTag("#comment")
+        self.xmltag.append(data)
+        self.endTag()
+        
         
     def StartCdataSectionHandler(self):
         printr( "StartCdataSectionHandler:")
+        self.xmltag.ttype = "cdata"
         
     def EndCdataSectionHandler(self):
         printr( "EndCdataSectionHandler:")
+        # se descarta el cierre...
     
     def StartDoctypeDeclHandler(self, doctypeName, systemId, publicId, has_internal_subset):
         printr( "StartDoctypeDeclHandler:", doctypeName, systemId, publicId, has_internal_subset)
+        # tagname: !\w+ -> DoctypeTag
+        attrs = {}
+        if systemId: attrs['systemId'] = systemId
+        if publicId: attrs['publicId'] = publicId
+        if has_internal_subset: attrs['has_internal_subset'] = has_internal_subset
+        
+        self.startTag("!"+doctypeName,attrs)
+        
 
     def EndDoctypeDeclHandler(self):
         printr( "EndDoctypeDeclHandler:")
+        self.endTag()
         
     def ElementDeclHandler(self, name, model):
         printr( "ElementDeclHandler:", name, model)
@@ -246,6 +368,45 @@ class JSON_Reverter(JSON_Base):
 
 
 
+def autodetectXmlEncoding(rawtext):
+    lines = [ line.strip() for line in rawtext.split("\n") if line.strip() ]
+    if lines[0].find("<!DOCTYPE UI>")>=0:
+        # File is QtDesigner UI 
+        return "UTF-8"
+        
+    if lines[0].find("UTF-8")>=0:
+        # Unkown, standard xml (like jrxml)
+        return "UTF-8"
+        
+    if lines[0].find("<ACTIONS>")>=0:
+        # AbanQ actions XML
+        return "ISO-8859-15"
+        
+    if lines[0].find("<!DOCTYPE TMD>")>=0:
+        # AbanQ table MTD
+        return "ISO-8859-15"
+
+    if lines[0].find("<!DOCTYPE QRY>")>=0:
+        # AbanQ report Query
+        return "ISO-8859-15"
+
+    if lines[0].find('<!DOCTYPE KugarTemplate SYSTEM "kugartemplate.dtd">')>=0:
+        # AbanQ report Kut
+        return "ISO-8859-15"
+        
+    if lines[0].find("<!DOCTYPE TS>")>=0:
+        # AbanQ translations
+        return "ISO-8859-15"
+
+    try:
+        import chardet
+        dictEncoding = chardet.detect(rawtext)
+        encoding = dictEncoding["encoding"]
+        return encoding
+    except ImportError:
+        print "python-chardet library is not installed. Assuming input file is UTF-8."
+    #encoding=
+    #UTF-8, UTF-16, ISO-8859-1 
 
 
 
@@ -280,7 +441,10 @@ def main():
             
             fhandler = open(fname)
             fw = open(fname+".json","w")
-            jconv = JSON_Converter(fhandler, fw)
+            rawtext = fhandler.read()
+            fhandler.seek(0)
+            encoding = autodetectXmlEncoding(rawtext)
+            jconv = JSON_Converter(fhandler, fw, encoding)
             jconv.process()
             
             fhandler.close()
