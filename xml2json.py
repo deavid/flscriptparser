@@ -21,6 +21,24 @@ def printr(*args):
         print repr(arg),
     print
 
+def entity_rep(txt,entities=""):
+    entity_list = list("&'\"<>")
+    entity_dict = {
+        '"' : "&quot;",
+        "'" : "&apos;",
+        '<' : "&lt;",
+        '>' : "&gt;",
+        "&" : "&amp;",
+    }
+    if entities == "": entities = entity_list
+    entities = list(entities)
+    if "&" not in entities: entities.append("&")
+    
+    for entity in entity_list:
+        if entity not in entities: continue
+        #print entity,entity_dict[entity]
+        txt = txt.replace(entity,entity_dict[entity])
+    return txt
 
 class xmlElement:
     def __init__(self, parent, tagname, attrs = {}, ttype = "text", tdata = ""):
@@ -31,9 +49,12 @@ class xmlElement:
         self.ttype = ttype
         self.tdata = tdata
     
+        self.children = []
+        
         if self.parent:
             self.depth = parent.depth + 1
             self.path = self.parent.path + [self.tagname]
+            self.parent.children.append(self)
         else:
             self.depth = 0
             self.path = [self.tagname]
@@ -60,6 +81,50 @@ class xmlElement:
         if ttype: vt2 +="\t%s:%s"  % ( ttype, json_dumps(tdata))
         
         return vt2.encode(encoding)
+
+    def exportXML(self):
+        if type(self.attrs) is dict:
+            attrs = [ [k,v] for k,v in self.attrs.iteritems() ]
+            attrs.sort()
+        else:
+            attrs = self.attrs
+        
+        txtattrs = ""
+        
+        if attrs:
+            txtattrs=" "
+            for key,value in attrs:
+                txtattrs += '%s="%s" ' % (key,entity_rep(value,'&<"'))
+                
+        
+        depthpad = u"    " * self.depth
+        output = u""
+        if self.tagname == "#comment":
+                output += u"%s<!-- %s -->\n" % (depthpad, self.tdata)
+        elif self.tagname[0] == "!":
+                output += u"%s<!DOCTYPE %s%s>\n" % (depthpad, self.tagname[1:],txtattrs)
+        elif self.children:
+            output += u"%s<%s%s>\n" % (depthpad, self.tagname,txtattrs)
+            for child in self.children:
+                output += child.exportXML()
+            
+            output += u"%s</%s>\n" % (depthpad, self.tagname)
+        else:
+            if self.tdata == "":
+                if txtattrs=="": txtattrs = " "
+                output += u"%s<%s%s/>\n" % (depthpad, self.tagname,txtattrs)
+            else:
+                tdata = self.tdata
+                if tdata.find("\n")>-1: tdata = "\n%s\n" % tdata
+                if self.ttype=="cdata": tdata = "<![CDATA[%s]]>" % self.tdata
+                else: tdata = entity_rep(self.tdata)
+                
+                output += u"%s<%s%s>%s</%s>\n" % (depthpad, self.tagname,txtattrs, tdata, self.tagname)
+        
+        
+        return output
+        
+        
         
         
 
@@ -76,6 +141,85 @@ class JSON_Base:
         
     def init_vars(self):
         pass
+        
+        
+
+class JSON_Reverter(JSON_Base):
+    def init_vars(self):
+        self.cElement = None
+        self.rootXML = []
+        
+    def processCmd(self,key,val):
+        if key == "encoding":
+            if self.encoding != "auto":
+                self.encoding = self.encoding.upper()
+                if val.upper() != self.encoding:
+                    print " ignoring %s=%s , using specified value '%s' instead" % (key,val,self.encoding)
+                return
+            self.encoding = val.upper()
+            return
+            
+        print "ERROR: unknown key %s='%s'" % (key,val)
+        
+    def newElement(self,depth,tagname,text,ttype,attrs):
+        parent = self.cElement
+        if parent: parentdepth = parent.depth 
+        else: parentdepth = -1
+        while parent and parentdepth > depth - 1:
+            parent = parent.parent
+            if parent: parentdepth = parent.depth
+            else: parentdepth = -1
+        
+        self.cElement = xmlElement(parent, tagname, attrs, ttype , text)
+        if parent is None: self.rootXML.append(self.cElement)
+            
+            
+    def process(self):
+        for line in self.finput:
+            line = line.strip()
+            if len(line) == 0: continue
+            if line[0]=="!":
+                lstkeys = line[1:].split(":")
+                key, val = lstkeys
+                self.processCmd(key.strip(),val.strip())
+                continue
+                
+            fields = line.split("\t")
+            
+            depth, tag = fields[0].split(")")
+            depth = int(depth)
+            text = ""
+            ttype = "text"
+            attrs = {}
+            
+            #self.foutput.write("%d\t%s\n" % (depth, tag))
+            for field in fields[1:]:
+                tpos = field.find(":")
+                if tpos == -1: 
+                    print "unexpected character:", line
+                    return
+                ftype = field[:tpos]
+                try:
+                    fvalue = json_loads(field[tpos+1:])
+                except ValueError:
+                    print "ValueError:", field[tpos+1:]
+                    
+                #if type(fvalue) is unicode:
+                #    self.foutput.write("%s = %s\n" % (ftype, fvalue.encode(self.encoding)))
+                #else:
+                #    self.foutput.write("%s = %s\n" % (ftype, repr(fvalue)))
+                if ftype == "text": 
+                    text = fvalue
+                    ttype = "text"
+                if ftype == "cdata": 
+                    text = fvalue
+                    ttype = "cdata"
+                if ftype == "attrs": attrs = fvalue
+            
+            self.newElement(depth,tag,text,ttype,attrs)        
+            
+        for element in self.rootXML:
+            self.foutput.write(element.exportXML().encode(self.encoding))
     
 """
     Possible Format:
@@ -268,6 +412,7 @@ class JSON_Converter(JSON_Base):
         
     def process(self):
         self.p.ParseFile(self.finput)
+        self.foutput.write("!encoding: "+ self.real_encoding+"\n")
         for tag in self.taglist:
             self.foutput.write(tag.export(self.real_encoding)+"\n")
     
@@ -363,8 +508,9 @@ class JSON_Converter(JSON_Base):
     def DefaultHandler(self,data):
         printr( "Unhandled data:", data)
     
-class JSON_Reverter(JSON_Base):
-    pass
+    
+            
+   
 
 
 
@@ -426,6 +572,9 @@ def main():
                     action="store_true", dest="debug", default=False,
                     help="prints lots of useless messages")
 
+    parser.add_option("-E", "--encoding", dest="encoding", default = "auto",
+                          help="Set encoding=ENC: auto,utf-8,iso-8859-15", metavar="ENC")
+
                     
     (options, args) = parser.parse_args()
     if options.optdebug:
@@ -443,7 +592,10 @@ def main():
             fw = open(fname+".json","w")
             rawtext = fhandler.read()
             fhandler.seek(0)
-            encoding = autodetectXmlEncoding(rawtext)
+            if options.encoding == "auto":
+                encoding = autodetectXmlEncoding(rawtext)
+            else:
+                encoding = options.encoding
             jconv = JSON_Converter(fhandler, fw, encoding)
             jconv.process()
             
@@ -458,7 +610,7 @@ def main():
             fhandler = open(fname)
             
             fw = open(fname+"."+ext,"w")
-            jrev = JSON_Reverter(fhandler, fw)
+            jrev = JSON_Reverter(fhandler, fw, options.encoding)
             jrev.process()
             
             fw.close()
