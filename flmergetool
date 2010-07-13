@@ -3,6 +3,11 @@
 # FLMERGETOOL.
 # To add this tool to git, do the following:
 # flmergetool INSTALL
+editors=(medit kate gedit kwrite nano vim vi)
+EDITOR=
+for editor in "${editor[@]}"; do
+    EDITOR=$(command -v $editor) && break
+done
 
 thisprg=`realpath $0`
 thisdir=`dirname $thisprg`
@@ -80,22 +85,26 @@ for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
                     patched=1
                 }
             done
-            if [[ $patched == 0 ]]; then
-                read -p "Fallo en el parseo del fichero, desea abrir un editor para corregirlo manualmente? [Y/n]:" editor
-                [[ $editor == "n" ]] && {
-                echo "FLScriptParse FAILED"
-                exit 1
-                }
-                bname=$(basename "$file1")
-                [[ $editor ]] || editor="medit"
-                [[ $editor == "Y" ]] || editor="medit"
-                [[ $editor == "y" ]] || editor="medit"
-                cp $file1 /tmp/$bname.orig
-                "$editor" "$file1"
-                read -p "Pulse Intro si ha terminado." 
-                diff -U6 -p --minimal -d /tmp/$bname.orig $file1 >/tmp/knownpatch.$bname.patch.tmp && \
-                    mv /tmp/knownpatch.$bname.patch.tmp /tmp/knownpatch.$bname.patch
-            fi        
+            
+            read -p "Fallo en el parseo del fichero, desea abrir un editor para corregirlo manualmente? [Y/n]:" editor
+            [[ $editor == "n" ]] && {
+            echo "FLScriptParse FAILED"
+            exit 1
+            }
+            bname=$(basename "$file1")
+            [[ $editor ]] || editor=$EDITOR
+            [[ $editor == "Y" ]] || editor=$EDITOR
+            [[ $editor == "y" ]] || editor=$EDITOR
+            cp $file1 /tmp/$bname.orig
+            "$editor" "$file1"
+            read -p "Pulse Intro si ha terminado." 
+            diff -U6 -p --minimal -d /tmp/$bname.orig $file1 >/tmp/knownpatch.$bname.patch.tmp 
+            if [[ $? == 1 ]] && [[ wc -l  /tmp/knownpatch.$bname.patch.tmp > 0 ]] ; then
+                mv /tmp/knownpatch.$bname.patch.tmp /tmp/knownpatch.$bname.patch
+            else
+                unlink /tmp/knownpatch.$bname.patch.tmp 
+            fi
+            
         fi
     done
 done
@@ -143,7 +152,7 @@ for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
     unlink "$file1.blocks"
     unlink "$file1.aligned"
     unlink "$file1.hash"
-fi
+done
 
 
 exit $?;
