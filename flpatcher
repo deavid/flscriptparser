@@ -102,7 +102,7 @@ is_valid_git_folder() {
             *) echo "Modified file in working directory '$filename' ($status)"; exit 1;;
             esac
             # echo "*$status* '$filename'"
-        done < <(git status --porcelain)
+        done < <(git status --porcelain 2>/dev/null)
 
     ) || return 1
     
