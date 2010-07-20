@@ -4,10 +4,12 @@
 # To add this tool to git, do the following:
 # flmergetool INSTALL
 editors=(medit kate gedit kwrite nano vim vi)
-EDITOR=
-for editor in "${editor[@]}"; do
-    EDITOR=$(command -v $editor) && break
+EDITOR_FILEPATH=
+for editor in "${editors[@]}"; do
+    EDITOR_FILEPATH=$(command -v $editor) 
+    [[ $EDITOR_FILEPATH ]] && break
 done
+echo $EDITOR_FILEPATH
 
 thisprg=`realpath $0`
 thisdir=`dirname $thisprg`
@@ -110,11 +112,8 @@ merge_qs() {
                 exit 1
                 }
                 bname=$(basename "$file1")
-                [[ $editor ]] || editor=$EDITOR
-                [[ $editor == "Y" ]] || editor=$EDITOR
-                [[ $editor == "y" ]] || editor=$EDITOR
                 cp $file1 /tmp/$bname.orig
-                "$editor" "$file1"
+                "$EDITOR_FILEPATH" "$file1"
                 read -p "Pulse Intro si ha terminado." 
                 diff -U6 -p --minimal -d /tmp/$bname.orig $file1 >/tmp/knownpatch.$bname.patch.tmp 
                 if [[ $? == 1 ]] && [[ $(wc -l  /tmp/knownpatch.$bname.patch.tmp) > 0 ]] ; then
