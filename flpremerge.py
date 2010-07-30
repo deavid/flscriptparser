@@ -74,7 +74,8 @@ class processedFile:
         self.linePosChar = linePosChar
         for pk, bl_name in list(sorted(self.sortedNames))+[((None,None),None)]:
             desde, hasta = pk
-            if desde is None or desde > anthasta + 1:
+            if desde is None or desde >= anthasta +1:
+                
                 bdesde = anthasta + 1
                 fB.seek(bdesde)
                 if desde:
@@ -87,8 +88,16 @@ class processedFile:
             
                 while linenum < len(linePosChar) and linePosChar[linenum+1]<=bdesde: linenum += 1
                 startline = linenum
-                while linenum < len(linePosChar) and linePosChar[linenum+1]<bhasta+1: linenum += 1
+                linesize=linePosChar[startline] - linePosChar[startline-1]
+                curpos = bdesde  - linePosChar[startline-1]
+                #if curpos != linesize: print "****", linesize, curpos
+                    
+                
+                while linenum < len(linePosChar) and linePosChar[linenum+1]<=bhasta: linenum += 1
                 endline = linenum 
+                #while startline > 1 and linePosChar[startline-1]-bdesde >=-2: startline-=1
+                
+                #print linePosChar[startline-1]-bdesde, linePosChar[startline]-bdesde, linePosChar[startline+1]-bdesde
             
                 #print (startline, endline), "BLOCK", (linePosChar[startline], linePosChar[endline]), (bdesde , bhasta), (bhasta-bdesde)+1
             
@@ -99,6 +108,8 @@ class processedFile:
                 bblocks = []
                 blockdesc = []
                 if len(sB.splitlines(1)) != endline-startline+1:
+                    print startline, endline, repr(sB)
+                    print linePosChar[endline-1]-bhasta, linePosChar[endline]-bhasta, linePosChar[endline+1]-bhasta
                     
                     print "Block lines doesnt match:", len(sB.splitlines(1)), endline-startline, startline, endline
                     print linePosChar[startline-2:startline+3],bdesde
@@ -174,16 +185,19 @@ class processedFile:
             while linenum < len(linePosChar) and linePosChar[linenum]<hasta+1: linenum += 1
             #linenum += 1
             endline = linenum 
-            if linePosChar[startline] - desde > 0 or linePosChar[endline] - hasta < 1:
-                print linePosChar[startline] - desde,  linePosChar[endline] - hasta, bl_name
+            if linePosChar[startline] - desde != 0 or linePosChar[endline] - hasta < 1 or linePosChar[endline] - hasta > 2:
+                print linePosChar[startline] - desde,  linePosChar[endline-1] - hasta, linePosChar[endline] - hasta, bl_name
             name = bl_name
             #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             self.computedBlocks.append((startline, endline,name))
             fout.write("%d\t%d\t%s\n" % (startline, endline,name))
             #print "%s" % name
             antdesde, anthasta = pk
-            if anthasta < linePosChar[linenum] + 1:
+            if anthasta <= linePosChar[linenum-1] + 1:
+                anthasta = linePosChar[linenum-1] + 1
+            elif anthasta <= linePosChar[linenum] + 1:
                 anthasta = linePosChar[linenum] + 1
+            
         fB.close()
         fout.close()
             
