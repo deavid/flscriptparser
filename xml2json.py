@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 try:
     from json import dumps as json_dumps
     from json import loads as json_loads

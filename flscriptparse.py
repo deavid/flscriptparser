@@ -47,6 +47,10 @@ def p_parse(token):
             | funccall
             | error
 
+    array_value : LBRACKET RBRACKET
+    
+    dictobject_value : LBRACE RBRACE
+    
     base_expression     : exprval
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
@@ -58,6 +62,8 @@ def p_parse(token):
                         | NEW funccall_1
                         | NEW ID
                         | base_expression CONDITIONAL1 base_expression COLON base_expression
+                        | array_value
+                        | dictobject_value
 
     expression  : base_expression
                 | error
@@ -93,6 +99,7 @@ def p_parse(token):
                 | whilestatement
                 | withstatement
                 | forstatement
+                | forinstatement
                 | switch
                 | trycatch
 
@@ -265,6 +272,10 @@ def p_parse(token):
     forstatement    : FOR LPAREN storeinstruction SEMI base_expression SEMI storeinstruction RPAREN statement_block 
     forstatement    : FOR LPAREN VAR vardecl SEMI base_expression SEMI storeinstruction RPAREN statement_block 
                     | FOR LPAREN SEMI base_expression SEMI storeinstruction RPAREN statement_block 
+                    | error
+
+    forinstatement  : FOR LPAREN VAR vardecl IN base_expression RPAREN statement_block 
+                    | FOR LPAREN variable IN base_expression RPAREN statement_block 
                     | error
 
     switch  : SWITCH LPAREN expression RPAREN LBRACE case_block_list RBRACE
