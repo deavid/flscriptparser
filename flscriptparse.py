@@ -50,7 +50,13 @@ def p_parse(token):
     array_value : LBRACKET RBRACKET
     
     dictobject_value : LBRACE RBRACE
-    
+                     | LBRACE dictobject_value_elemlist RBRACE
+
+    dictobject_value_elemlist : dictobject_value_elem
+                              | dictobject_value_elemlist COMMA dictobject_value_elem
+                                
+    dictobject_value_elem : constant COLON exprval
+                                
     base_expression     : exprval
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
@@ -425,7 +431,10 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
         
         if type(value) is dict:
             #print "*"
-            tree_obj = calctree(value,depth+1,num+[str(n)], ctype)
+            if depth < 60:
+                tree_obj = calctree(value,depth+1,num+[str(n)], ctype)
+            else:
+                tree_obj = None
             if type(tree_obj) is dict:
                 if tree_obj['has_data'] and ctype != otype:
                     contentlist.append([ctype,tree_obj])
@@ -626,7 +635,7 @@ def main():
             prog = parse(data)                      
             sys.stderr.write(" formatting ...")
             sys.stderr.flush()
-            if prog: do_it()
+            #if prog: do_it()
             sys.stderr.write(" Done.\n")
             sys.stderr.flush()
         
