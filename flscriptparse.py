@@ -250,6 +250,7 @@ def p_parse(token):
 
     statement_block : statement
                     | LBRACE statement_list RBRACE
+                    | LBRACE RBRACE
 
     optelse : ELSE statement_block
             | empty
