@@ -276,9 +276,12 @@ def p_parse(token):
     withstatement   : WITH LPAREN variable RPAREN statement_block 
                     | error
 
-    forstatement    : FOR LPAREN storeinstruction SEMI base_expression SEMI storeinstruction RPAREN statement_block 
-    forstatement    : FOR LPAREN VAR vardecl SEMI base_expression SEMI storeinstruction RPAREN statement_block 
-                    | FOR LPAREN SEMI base_expression SEMI storeinstruction RPAREN statement_block 
+    storeormember   : storeinstruction
+                    | member_var
+                    
+    forstatement    : FOR LPAREN storeinstruction SEMI base_expression SEMI storeormember RPAREN statement_block 
+    forstatement    : FOR LPAREN VAR vardecl SEMI base_expression SEMI storeormember RPAREN statement_block 
+                    | FOR LPAREN SEMI base_expression SEMI storeormember RPAREN statement_block 
                     | error
 
     forinstatement  : FOR LPAREN VAR vardecl IN base_expression RPAREN statement_block 
@@ -581,11 +584,14 @@ def parse(data):
 
 
 def main():
+    global start
     parser = OptionParser()
     #parser.add_option("-f", "--file", dest="filename",
     #                  help="write report to FILE", metavar="FILE")
     parser.add_option("-O", "--output", dest="output", default = "xml",
                           help="Set output TYPE: xml|hash", metavar="TYPE")
+    parser.add_option("--start", dest="start", default = None,
+                          help="Set start block", metavar="STMT")
     parser.add_option("-q", "--quiet",
                     action="store_false", dest="verbose", default=True,
                     help="don't print status messages to stdout")
@@ -602,7 +608,10 @@ def main():
     (options, args) = parser.parse_args()
     if options.optdebug:
         print options, args
-
+    if options.start:
+        start = options.start
+        print "Start setted to:" , start
+        
 
 
 
@@ -646,7 +655,18 @@ def main():
         line = ""
         while 1:
             try:
-                line += raw_input("flscript> ")
+                line1 = raw_input("flscript> ")
+                if line1.startswith("#"):
+                    comm = line1[1:].split(" ")
+                    if comm[0] == "setstart":
+                        start = comm[1]
+                        print "Start setted to:" , start
+                    if comm[0] == "parse":
+                        print
+                        prog = parse(line)     
+                        line = ""
+                else:
+                    line += line1
             except EOFError:                
                 break;
             line += "\n"                    
