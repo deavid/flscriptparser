@@ -588,7 +588,7 @@ def main():
     parser = OptionParser()
     #parser.add_option("-f", "--file", dest="filename",
     #                  help="write report to FILE", metavar="FILE")
-    parser.add_option("-O", "--output", dest="output", default = "xml",
+    parser.add_option("-O", "--output", dest="output", default = "none",
                           help="Set output TYPE: xml|hash", metavar="TYPE")
     parser.add_option("--start", dest="start", default = None,
                           help="Set start block", metavar="STMT")
@@ -616,6 +616,7 @@ def main():
 
 
     def do_it():
+        if options.output == "none": return 
         tree_data = calctree(prog)
         if options.output == "hash":    
             printtree(tree_data, mode = "hash")
@@ -645,7 +646,7 @@ def main():
             prog = parse(data)                      
             sys.stderr.write(" formatting ...")
             sys.stderr.flush()
-            #if prog: do_it()
+            if prog: do_it()
             sys.stderr.write(" Done.\n")
             sys.stderr.flush()
         

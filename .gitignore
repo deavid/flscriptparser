@@ -1,0 +1,10 @@
+actualiza
+*~
+*.orig
+*.directory
+*.BASE.*
+*.REMOTE.*
+*.LOCAL.*
+*.log
+*.rej
+*.pyc
