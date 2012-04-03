@@ -13,6 +13,6 @@ done < <(find /usr/local/ -type f -name designer)
 
 while read line; do
     bname=$(basename "$line")
-    test -e /usr/local/bin/$bname && unlink /usr/local/bin/$bname
+    test -h /usr/local/bin/$bname && unlink /usr/local/bin/$bname
     ln -s "$line" /usr/local/bin/$bname
 done < <(find $(pwd) -executable -type f \! -path "*/.*")
