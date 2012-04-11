@@ -41,12 +41,13 @@ class TagObjectFactory(type):
 class TagObject(object):
     __metaclass__ = TagObjectFactory
     tags = []
-    set_child_argn = True
+    set_child_argn = False
     name_is_first_id = False
     debug_other = True
     adopt_childs_tags = []
     omit_tags = ['empty']
     callback_subelem = {}
+    promote_child_if_alone = False
     
     @classmethod
     def tagname(self, tagname): return self.__name__
@@ -58,11 +59,16 @@ class TagObject(object):
         self.astname = tagname
         self.xml = etree.Element(self.tagname(tagname))
         self.xmlname = None
+        self.subelems = []
+        self.values = []
         if self.name_is_first_id:
             self.xml.set("name","")
     
     def adopt_children(self, argn, subelem):
         for child in subelem.xml.iterchildren():
+            if self.set_child_argn: child.set("argn",str(argn))
+            else: 
+                if 'argn' in child.attrib: del child.attrib['argn']
             self.xml.append(child)
 
     def omit_subelem(self, argn, subelem):
@@ -85,8 +91,10 @@ class TagObject(object):
         
         if self.set_child_argn: subelem.xml.set("argn",str(argn))
         self.xml.append(subelem.xml)
+        self.subelems.append(subelem)
     
     def add_value(self, argn, vtype, value):
+        self.values.append( (vtype, value) )
         if vtype == "ID" and self.name_is_first_id and self.xmlname is None:
             self.xmlname = value
             self.xml.set("name",value)
@@ -99,7 +107,10 @@ class TagObject(object):
             self.xml.set("arg%02d" % argn,vtype)
     
     def polish(self):
-        return
+        if self.promote_child_if_alone:
+            if len(self.values) == 0 and len(self.subelems) == 1:
+                return self.subelems[0]
+        return self
 
 
 class ListObject(TagObject):
@@ -115,25 +126,19 @@ class ListNamedObject(TagObject):
     set_child_argn = False
     debug_other = False
 
-class StatementList(ListObject):
-    tags = ["statement_list"]
-    adopt_childs_tags = ['statement']
-
-class Instruction(ListObject):
-    tags = ["instruction"]
-    adopt_childs_tags = ['base_instruction']
 
 
 class Source(ListObject):
-    tags = ["source","basicsource"]
-    adopt_childs_tags = ['source_element','statement_list']
+    tags = ["source","basicsource","classdeclarationsource","statement_list"]
+    adopt_childs_tags = ['source_element','statement_list','statement']
 
 class Identifier(NamedObject):
-    tags = ["identifier"]
+    tags = ["identifier","optid"]
+    def polish(self):
+        if self.xmlname is None:
+            self.astname = "empty"
+        return self
 
-
-class Class(ListNamedObject):
-    tags = ["classdeclaration"]
 
 class Arguments(ListObject):
     tags = ["arglist"]
@@ -144,6 +149,14 @@ class VariableType(NamedObject):
     def polish(self):
         if self.xmlname is None:
             self.astname = "empty"
+        return self
+
+class ExtendsType(NamedObject):
+    tags = ["optextends"]
+    def polish(self):
+        if self.xmlname is None:
+            self.astname = "empty"
+        return self
 
 class Function(ListNamedObject):
     tags = ["funcdeclaration"]
@@ -167,9 +180,138 @@ class DeclarationBlock(ListObject):
     def add_other(self, argn, vtype, value):
         if argn == 0:
             self.xml.set("mode", vtype)
+    def polish(self):
+        if len(self.values) == 0 and len(self.subelems) == 1:
+            self.subelems[0].xml.set("mode",self.xml.get("mode"))
+            return self.subelems[0]
+        return self
+
+
+class Class(ListNamedObject):
+    tags = ["classdeclaration"]
+    callback_subelem = ListNamedObject.callback_subelem.copy()
+    callback_subelem[ExtendsType] = "add_exttype"
+    def add_exttype(self, argn, subelem):
+        self.xml.set("extends", str(subelem.xmlname))
+
+class Member(TagObject):
+    debug_other = False
+    set_child_argn = False
+    tags = ["member_var","member_call"]
+    adopt_childs_tags = ['varmemcall',"member_var","member_call"]
+
+class InstructionCall(TagObject):
+    debug_other = False
+    tags = ["callinstruction"]
+
+class InstructionStore(TagObject):
+    promote_child_if_alone = True
+    debug_other = False
+    tags = ["storeinstruction"]
+
+class InstructionFlow(TagObject):
+    debug_other = True
+    tags = ["flowinstruction"]
+    def add_other(self, argn, vtype, value):
+        if argn == 0:
+            self.xml.set("type", vtype)
+
+class Math(TagObject):
+    debug_other = True
+    tags = ["mathoperator"]
+    def add_other(self, argn, vtype, value):
+        if argn == 0:
+            self.xml.set("type", vtype)
+
+class Compare(TagObject):
+    debug_other = True
+    tags = ["cmp_symbol","boolcmp_symbol"]
+    def add_other(self, argn, vtype, value):
+        if argn == 0:
+            self.xml.set("type", vtype)
+
+class FunctionCall(NamedObject):    
+    tags = ["funccall_1"]
+
+class CallArguments(ListObject):
+    tags = ["callargs"]
+
+class InstructionStoreEqual(ListObject):
+    tags = ["storeequalinstruction"]
+
+class Constant(ListObject):
+    tags = ["constant"]
+    def add_value(self, argn, vtype, value):
+        value = unicode(value,"ISO-8859-15","replace")
+        if vtype == "SCONST": 
+            vtype = "String"
+            value = value[1:-1]
+        if vtype == "CCONST": vtype = "String"
+        if vtype == "RCONST": vtype = "Regex"
+        if vtype == "ICONST": vtype = "Number"
+        if vtype == "FCONST": vtype = "Number"
+        self.const_value = value
+        self.const_type = vtype
+        self.xml.set("type",vtype)
+        self.xml.set("value",value)
+
+class If(ListObject):
+    tags = ["ifstatement"]
+            
+class Condition(ListObject):
+    tags = ["condition"]
+
+class Else(ListObject):
+    tags = ["optelse"]
+    adopt_childs_tags = ['statement_block']
+    def polish(self):
+        if len(self.subelems) == 0:
+            self.astname = "empty"
+        return self
+
+
+class ExpressionContainer(ListObject):
+    tags = ["expression"]
+    # adopt_childs_tags = ['base_expression']
     
+    def polish(self):
+        if len(self.values) == 0 and len(self.subelems) == 1:
+            #if isinstance(self.subelems[0], Constant):  
+            if self.subelems[0].xml.tag == "base_expression":
+                self.subelems[0].xml.tag = "Expression"
+                return self.subelems[0]
+            else: 
+                self.xml.tag = "Value"
+            
+        return self
+
+class Switch(ListObject):
+    tags = ["switch"]
+    adopt_childs_tags = ['case_cblock_list']
+
+
+class Case(ListObject):
+    tags = ["case_block"]
+
+class New(ListObject):
+    tags = ["new_operator"]
+    
+class Parentheses(ListObject):
+    tags = ["parentheses"]
+    adopt_childs_tags = ['base_expression']
+    
+class Unary(ListObject):
+    tags = ["unary_operator"]
+    def add_other(self, argn, vtype, value):
+        if argn == 0:
+            self.xml.set("type", vtype)
+
+class Ternary(ListObject):
+    tags = ["ternary_operator"]
+
 
 class Unknown(TagObject):
+    promote_child_if_alone = True
     set_child_argn = False
     @classmethod
     def tagname(self, tagname): return tagname
@@ -200,8 +342,7 @@ def parse_unknown(tagname, treedata):
             xmlelem.add_other(i, k, v)
             
         i+=1
-    xmlelem.polish()
-    return xmlelem
+    return xmlelem.polish()
 
 
 
@@ -231,10 +372,20 @@ def main():
         print options, args
         
     for filename in args:
+        print filename
         prog = flscriptparse.parse(open(filename).read())                      
+        if not prog:
+            print "No se pudo abrir el fichero."
+            continue
         tree_data = flscriptparse.calctree(prog, alias_mode = 0)
-        ast = post_parse(tree_data)
+        if not tree_data:
+            print "No se pudo parsear."
+            continue
         
+        ast = post_parse(tree_data)
+        if ast is None:
+            print "No se pudo analizar."
+            continue
         print etree.tostring(ast, pretty_print = True)
 
 

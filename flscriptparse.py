@@ -63,15 +63,24 @@ def p_parse(token):
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
                         | base_expression boolcmp_symbol base_expression
-                        | LPAREN base_expression RPAREN
-                        | LNOT base_expression
-                        | MINUS base_expression
-                        | PLUS base_expression
-                        | NEW funccall_1
-                        | NEW ID
-                        | base_expression CONDITIONAL1 base_expression COLON base_expression
+                        | inlinestoreinstruction
+                        | parentheses
+                        | unary_operator
+                        | new_operator
+                        | ternary_operator
                         | array_value
                         | dictobject_value
+                        
+    parentheses         : LPAREN base_expression RPAREN
+    
+    unary_operator      : LNOT base_expression
+                        | MINUS base_expression
+                        | PLUS base_expression
+                    
+    new_operator        : NEW funccall_1
+                        | NEW identifier
+                    
+    ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
     expression  : base_expression
                 | error
@@ -79,7 +88,7 @@ def p_parse(token):
     case_cblock_list  :  case_block  
     case_cblock_list  :  case_cblock_list case_block  
 
-    case_block  :  CASE base_expression COLON statement_list 
+    case_block  :  CASE expression COLON statement_list 
 
     case_default    :  DEFAULT COLON statement_list
 
@@ -162,8 +171,8 @@ def p_parse(token):
                 | LPAREN member_call RPAREN
                 | LPAREN funccall_1 RPAREN
 
-    funccall_1  : identifier LPAREN callargs RPAREN
-                | identifier LPAREN RPAREN
+    funccall_1  : ID LPAREN callargs RPAREN
+                | ID LPAREN RPAREN
 
     mathoperator    : PLUS
                     | MINUS
@@ -182,14 +191,13 @@ def p_parse(token):
                 | LPAREN member_var RPAREN
 
     variable_1  : identifier 
-                | inlinestoreinstruction
                 | variable_1 LBRACKET base_expression RBRACKET
                 | funccall_1 LBRACKET base_expression RBRACKET
 
-    inlinestoreinstruction  : PLUSPLUS identifier 
-                            | MINUSMINUS identifier 
-                            | identifier PLUSPLUS 
-                            | identifier MINUSMINUS 
+    inlinestoreinstruction  : PLUSPLUS variable 
+                            | MINUSMINUS variable 
+                            | variable PLUSPLUS 
+                            | variable MINUSMINUS 
 
         storeequalinstruction   : variable EQUALS expression 
                                 | variable EQUALS storeequalinstruction
@@ -216,12 +224,13 @@ def p_parse(token):
     instruction : base_instruction SEMI
                 | SEMI
                 | base_instruction 
+                
+    callinstruction : funccall
+                    | variable
+    
     base_instruction : storeinstruction
-                | funccall 
+                | callinstruction
                 | flowinstruction 
-                | variable
-                | variable PLUSPLUS
-                | variable MINUSMINUS
 
     optextends  : EXTENDS ID
                 | empty
@@ -311,8 +320,6 @@ last_error_token = None
 def p_error(t):
     global error_count
     global last_error_token
-        
-
     if repr(t) != repr(last_error_token):
         error_count += 1
         if error_count>100 or t is None:         
@@ -337,6 +344,7 @@ def p_error(t):
     #    yacc.errok()
     #else:
     if t is None:
+        print "ERROR: End of the file reached."
         yacc.errok()
         return
     t = yacc.token() 
@@ -349,7 +357,7 @@ def p_error(t):
 
 
 parser = yacc.yacc(method='LALR',debug=0, 
-      optimize = 0, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
+      optimize = 1, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
 
 #profile.run("yacc.yacc(method='LALR')")
 
