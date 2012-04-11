@@ -46,6 +46,8 @@ def p_parse(token):
             | variable
             | funccall
             | error
+    
+    identifier : ID
 
     array_value : LBRACKET RBRACKET
     
@@ -160,8 +162,8 @@ def p_parse(token):
                 | LPAREN member_call RPAREN
                 | LPAREN funccall_1 RPAREN
 
-    funccall_1  : ID LPAREN callargs RPAREN
-                | ID LPAREN RPAREN
+    funccall_1  : identifier LPAREN callargs RPAREN
+                | identifier LPAREN RPAREN
 
     mathoperator    : PLUS
                     | MINUS
@@ -179,15 +181,15 @@ def p_parse(token):
                 | LPAREN variable_1 RPAREN 
                 | LPAREN member_var RPAREN
 
-    variable_1  : ID 
+    variable_1  : identifier 
                 | inlinestoreinstruction
                 | variable_1 LBRACKET base_expression RBRACKET
                 | funccall_1 LBRACKET base_expression RBRACKET
 
-    inlinestoreinstruction  : PLUSPLUS ID 
-                            | MINUSMINUS ID 
-                            | ID PLUSPLUS 
-                            | ID MINUSMINUS 
+    inlinestoreinstruction  : PLUSPLUS identifier 
+                            | MINUSMINUS identifier 
+                            | identifier PLUSPLUS 
+                            | identifier MINUSMINUS 
 
         storeequalinstruction   : variable EQUALS expression 
                                 | variable EQUALS storeequalinstruction
@@ -393,7 +395,7 @@ def print_tokentree(token, depth = 0):
             
             print_tokentree(tk.value, depth +1)
 
-def calctree(obj, depth = 0, num = [], otype = "source"):
+def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
     #if depth > 5: return
     source_data = [
         'source',
@@ -408,17 +410,24 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
     has_data = 0
     has_objects = 0
     contentlist = []
-    ctype_alias = {
-        "member_var" : "member",
-        "member_call" : "member",
-        "variable_1" : "variable",
-        "funccall_1" : "funccall",
-        "flowinstruction" : "instruction",
-        "storeequalinstruction" : "instruction",
-        "vardecl" : "vardeclaration",
-        #"vardecl_list" : "vardeclaration",
+    
+    if alias_mode == 0:
+        ctype_alias = {}
+    elif alias_mode == 1:
+        ctype_alias = {
+            "member_var" : "member",
+            "member_call" : "member",
+            "variable_1" : "variable",
+            "funccall_1" : "funccall",
+            "flowinstruction" : "instruction",
+            "storeequalinstruction" : "instruction",
+            "vardecl" : "vardeclaration",
+            #"vardecl_list" : "vardeclaration",
         
-    }
+        }
+    else:
+        raise ValueError, "alias_mode unknown"
+        
     if otype in ctype_alias:
         otype = ctype_alias[otype]
     #print " " * depth , obj['02-size']
@@ -435,12 +444,12 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
         
         if type(value) is dict:
             #print "*"
-            if depth < 60:
-                tree_obj = calctree(value,depth+1,num+[str(n)], ctype)
+            if depth < 600:
+                tree_obj = calctree(value,depth+1,num+[str(n)], ctype, alias_mode=alias_mode)
             else:
                 tree_obj = None
             if type(tree_obj) is dict:
-                if tree_obj['has_data'] and ctype != otype:
+                if (tree_obj['has_data'] or alias_mode == 0) and ctype != otype :
                     contentlist.append([ctype,tree_obj])
                     has_objects += 1
                 else:
@@ -588,7 +597,7 @@ def main():
     parser = OptionParser()
     #parser.add_option("-f", "--file", dest="filename",
     #                  help="write report to FILE", metavar="FILE")
-    parser.add_option("-O", "--output", dest="output", default = "xml",
+    parser.add_option("-O", "--output", dest="output", default = "none",
                           help="Set output TYPE: xml|hash", metavar="TYPE")
     parser.add_option("--start", dest="start", default = None,
                           help="Set start block", metavar="STMT")
@@ -629,6 +638,9 @@ def main():
             f1_xml = open(filename+".xml","w")
             printtree(tree_data, mode = "xml", output = f1_xml)
             f1_xml.close()
+        elif options.output == "yaml":
+            import yaml
+            print yaml.dump(tree_data['content'])
             
         else:
             print "Unknown outputmode", options.output
@@ -645,7 +657,7 @@ def main():
             prog = parse(data)                      
             sys.stderr.write(" formatting ...")
             sys.stderr.flush()
-            #if prog: do_it()
+            if prog and options.output != "none": do_it()
             sys.stderr.write(" Done.\n")
             sys.stderr.flush()
         
