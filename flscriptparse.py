@@ -59,17 +59,18 @@ def p_parse(token):
                                 
     dictobject_value_elem : constant COLON exprval
                                 
-    base_expression     : exprval
+    base_expression     : inlinestoreinstruction
+                        | exprval
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
                         | base_expression boolcmp_symbol base_expression
-                        | inlinestoreinstruction
                         | parentheses
                         | unary_operator
                         | new_operator
                         | ternary_operator
                         | array_value
                         | dictobject_value
+                        
                         
     parentheses         : LPAREN base_expression RPAREN
     
@@ -158,7 +159,7 @@ def p_parse(token):
                 | funccall_1
                 | member_call
                 | member_var
-                | base_expression 
+                | LPAREN base_expression RPAREN
 
     member_var  : varmemcall PERIOD variable_1
     member_call : LPAREN member_var RPAREN PERIOD funccall_1
@@ -272,6 +273,7 @@ def p_parse(token):
                 | GE
                 | EQ
                 | NE
+                | IN
 
     boolcmp_symbol  : LOR
                     | LAND
@@ -326,19 +328,16 @@ def p_error(t):
     global ok_count
     global last_error_token
     global last_error_line
+    error_count += 1
     if t is not None:
         if last_error_token is None or t.lexpos != last_error_token.lexpos:
-            error_count = 0
             if abs(last_error_line -  t.lineno) > 3 and ok_count > 2:
                 try: print_context(t)
                 except: pass
-                print "ERROR"
                 last_error_line = t.lineno
             yacc.errok()
             ok_count = 0
             return
-        else:
-            error_count += 1
 
     ok_count = 0
     if t is None:
@@ -375,7 +374,6 @@ def print_context(token):
 
     print input_data[last_cr:next_cr].replace("\t"," ")
     print (" " * (column-1)) + "^", column, "#ERROR#" , token
-    print
     
     
 def my_tokenfunc(*args, **kwargs):
@@ -592,11 +590,16 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
 
 def parse(data):
     global input_data
+    global error_count
     parser.error = 0
     input_data = data
-    flex.lexer.lineno = 0
+    flex.lexer.lineno = 1
+    error_count = 0
     p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
-    if parser.error: return None
+    if error_count > 0:
+        print "ERRORS (%d)" % error_count
+    if parser.error: 
+        return None
     return p
 
 
