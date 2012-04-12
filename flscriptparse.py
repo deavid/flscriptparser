@@ -57,7 +57,7 @@ def p_parse(token):
     dictobject_value_elemlist : dictobject_value_elem
                               | dictobject_value_elemlist COMMA dictobject_value_elem
                                 
-    dictobject_value_elem : constant COLON exprval
+    dictobject_value_elem : exprval COLON expression
                                 
     base_expression     : inlinestoreinstruction
                         | exprval
@@ -70,6 +70,7 @@ def p_parse(token):
                         | ternary_operator
                         | array_value
                         | dictobject_value
+                        | typeof_operator
                         
                         
     parentheses         : LPAREN base_expression RPAREN
@@ -80,10 +81,13 @@ def p_parse(token):
                     
     new_operator        : NEW funccall_1
                         | NEW identifier
+                        
+    typeof_operator     : TYPEOF variable
                     
     ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
     expression  : base_expression
+                | funcdeclaration_anon
                 | error
 
     case_cblock_list  :  case_block  
@@ -148,6 +152,7 @@ def p_parse(token):
             |
 
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
+    funcdeclaration_anon : FUNCTION LPAREN arglist RPAREN LBRACE basicsource RBRACE
 
     callarg     : expression
 
@@ -160,6 +165,7 @@ def p_parse(token):
                 | member_call
                 | member_var
                 | LPAREN base_expression RPAREN
+                | LPAREN identifier RPAREN
 
     member_var  : varmemcall PERIOD variable_1
     member_call : LPAREN member_var RPAREN PERIOD funccall_1
@@ -330,7 +336,7 @@ def p_error(t):
     global last_error_line
     error_count += 1
     if t is not None:
-        if last_error_token is None or t.lexpos != last_error_token.lexpos:
+        if last_error_token is None or t.lexpos != getattr(last_error_token,"lexpos",None):
             if abs(last_error_line -  t.lineno) > 3 and ok_count > 2:
                 try: print_context(t)
                 except: pass

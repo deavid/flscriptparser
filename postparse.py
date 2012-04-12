@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from optparse import OptionParser
 import os, os.path
 import flscriptparse

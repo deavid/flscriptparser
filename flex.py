@@ -17,7 +17,7 @@ reserved = [
     #'STRUCT', 
     'SWITCH', 
     'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
-    'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE'
+    'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE', 'TYPEOF'
     ]
 token_literals = [
     # Literals (identifier, integer constant, float constant, string constant, char const)
@@ -157,7 +157,7 @@ t_FCONST = r'((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
 t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
 
 # Character constant 'c' or L'c'
-t_CCONST = r'(L)?\'([^\\\n]|(\\.))*?\''
+t_CCONST = r'\'([^\\\n]|(\\.))*?\''
 
 # REGEX constant 
 t_RXCONST = r'/.+/g'
