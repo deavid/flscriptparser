@@ -312,37 +312,35 @@ def p_parse(token):
     lexspan = list(token.lexspan(0))
     data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
     token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
+    global ok_count
+    ok_count += 1
 
 
 error_count = 0
 last_error_token = None
+last_error_line = -1
+ok_count = 0
 
 def p_error(t):
     global error_count
+    global ok_count
     global last_error_token
-    if repr(t) != repr(last_error_token):
-        error_count += 1
-        if error_count>100 or t is None:         
+    global last_error_line
+    if t is not None:
+        if last_error_token is None or t.lexpos != last_error_token.lexpos:
+            error_count = 0
+            if abs(last_error_line -  t.lineno) > 3 and ok_count > 2:
+                try: print_context(t)
+                except: pass
+                print "ERROR"
+                last_error_line = t.lineno
             yacc.errok()
+            ok_count = 0
             return
-        try:
-            print_context(t)
-        except:
-            pass
-        print "ERROR"
-        import sys
-        sys.exit()
-    #while 1:
-    #    if t is None:
-    #        print "*** Se encontro EOF intentando resolver el error *** "
-    #        break
-    #    if t.type == 'RBRACE': break
-    #    if t.type == 'SEMI': break
-    #    t = yacc.token()             # Get the next token
-        
-    #if t is not None:
-    #    yacc.errok()
-    #else:
+        else:
+            error_count += 1
+
+    ok_count = 0
     if t is None:
         print "ERROR: End of the file reached."
         yacc.errok()
@@ -365,7 +363,7 @@ global input_data
 
 def print_context(token):
     global input_data
-    if not token: return
+    if token is None: return
     last_cr = input_data.rfind('\n',0,token.lexpos)
     next_cr = input_data.find('\n',token.lexpos)
     column = (token.lexpos - last_cr)
@@ -595,6 +593,7 @@ def parse(data):
     global input_data
     parser.error = 0
     input_data = data
+    flex.lexer.lineno = 0
     p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
     if parser.error: return None
     return p

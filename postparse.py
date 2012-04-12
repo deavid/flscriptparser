@@ -1,4 +1,5 @@
 from optparse import OptionParser
+import os, os.path
 import flscriptparse
 from lxml import etree
 USEFUL_TOKENS="ID,ICONST,FCONST,SCONST,CCONST,RXCONST".split(",")
@@ -366,17 +367,26 @@ def main():
                     action="store_true", dest="debug", default=False,
                     help="prints lots of useless messages")
                     
+    parser.add_option("--path",
+                    dest="storepath", default=None,
+                    help="store XML results in PATH")
+                    
 
     (options, args) = parser.parse_args()
     if options.optdebug:
         print options, args
         
     for filename in args:
-        print filename
+        bname = os.path.basename(filename)
+        print "File:", bname
         prog = flscriptparse.parse(open(filename).read())                      
         if not prog:
             print "No se pudo abrir el fichero."
             continue
+        if options.storepath is None: 
+            # Si no se quiere guardar resultado, no hace falta calcular mas
+            continue
+            
         tree_data = flscriptparse.calctree(prog, alias_mode = 0)
         if not tree_data:
             print "No se pudo parsear."
@@ -386,7 +396,10 @@ def main():
         if ast is None:
             print "No se pudo analizar."
             continue
-        print etree.tostring(ast, pretty_print = True)
+        if options.storepath:
+            f1 = open(os.path.join(options.storepath,bname+".xml"),"w")
+            f1.write(etree.tostring(ast, pretty_print = True))
+            f1.close()
 
 
 
