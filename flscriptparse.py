@@ -119,6 +119,7 @@ def p_parse(token):
                 | vardeclaration
                 | ifstatement
                 | whilestatement
+                | dowhilestatement
                 | withstatement
                 | forstatement
                 | forinstatement
@@ -206,20 +207,21 @@ def p_parse(token):
                             | variable PLUSPLUS 
                             | variable MINUSMINUS 
 
-        storeequalinstruction   : variable EQUALS expression 
-                                | variable EQUALS storeequalinstruction
+        updateoperator : EQUALS
+                       | PLUSEQUAL
+                       | MINUSEQUAL
+                       | MODEQUAL
+                       | DIVEQUAL
+                       | TIMESEQUAL
+        
+        updateinstruction : variable updateoperator expression
+                          | variable updateoperator updateinstruction
 
-
-            
+        deleteinstruction   : DELETE variable        
 
         storeinstruction    : inlinestoreinstruction
-                            | storeequalinstruction
-                            | variable PLUSEQUAL expression
-                            | variable MINUSEQUAL expression
-                            | variable MODEQUAL expression
-                            | variable DIVEQUAL expression
-                            | variable TIMESEQUAL expression
-                            | DELETE variable
+                            | updateinstruction
+                            | deleteinstruction
             
 
     flowinstruction : RETURN expression 
@@ -289,22 +291,31 @@ def p_parse(token):
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
 
     whilestatement  : WHILE LPAREN condition RPAREN statement_block 
-    whilestatement  : DO statement_block WHILE LPAREN condition RPAREN SEMI
-                    | error
+    dowhilestatement  : DO statement_block WHILE LPAREN condition RPAREN SEMI
 
     withstatement   : WITH LPAREN variable RPAREN statement_block 
                     | error
 
     storeormember   : storeinstruction
                     | member_var
+
+    for_initialize  : storeinstruction
+                    | VAR vardecl
+                    | for_initialize COMMA for_initialize
+                    | empty
                     
-    forstatement    : FOR LPAREN storeinstruction SEMI base_expression SEMI storeormember RPAREN statement_block 
-    forstatement    : FOR LPAREN VAR vardecl SEMI base_expression SEMI storeormember RPAREN statement_block 
-                    | FOR LPAREN SEMI base_expression SEMI storeormember RPAREN statement_block 
+    for_compare     : expression
+                    | empty
+    
+    for_increment   : storeormember
+                    | for_increment COMMA for_increment
+                    | empty
+    
+    
+    forstatement    : FOR LPAREN for_initialize SEMI for_compare SEMI for_increment RPAREN statement_block 
                     | error
 
-    forinstatement  : FOR LPAREN VAR vardecl IN base_expression RPAREN statement_block 
-                    | FOR LPAREN variable IN base_expression RPAREN statement_block 
+    forinstatement  : FOR LPAREN for_initialize IN variable RPAREN statement_block 
                     | error
 
     switch  : SWITCH LPAREN expression RPAREN LBRACE case_block_list RBRACE

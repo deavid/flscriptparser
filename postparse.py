@@ -128,6 +128,11 @@ class ListNamedObject(TagObject):
     set_child_argn = False
     debug_other = False
 
+class TypedObject(ListObject):
+    type_arg = 0
+    def add_other(self, argn, vtype, value):
+        if argn == self.type_arg:
+            self.xml.set("type", vtype)
 
 
 class Source(ListObject):
@@ -183,11 +188,10 @@ class DeclarationBlock(ListObject):
         if argn == 0:
             self.xml.set("mode", vtype)
     def polish(self):
-        if len(self.values) == 0 and len(self.subelems) == 1:
-            self.subelems[0].xml.set("mode",self.xml.get("mode"))
-            return self.subelems[0]
+        #if len(self.values) == 0 and len(self.subelems) == 1:
+        #    self.subelems[0].xml.set("mode",self.xml.get("mode"))
+        #    return self.subelems[0]
         return self
-
 
 class Class(ListNamedObject):
     tags = ["classdeclaration"]
@@ -211,35 +215,23 @@ class InstructionStore(TagObject):
     debug_other = False
     tags = ["storeinstruction"]
 
-class InstructionFlow(TagObject):
+class InstructionFlow(TypedObject):
     debug_other = True
     tags = ["flowinstruction"]
-    def add_other(self, argn, vtype, value):
-        if argn == 0:
-            self.xml.set("type", vtype)
 
-class Math(TagObject):
+class OpMath(TypedObject):
     debug_other = True
     tags = ["mathoperator"]
-    def add_other(self, argn, vtype, value):
-        if argn == 0:
-            self.xml.set("type", vtype)
 
-class Compare(TagObject):
+class Compare(TypedObject):
     debug_other = True
     tags = ["cmp_symbol","boolcmp_symbol"]
-    def add_other(self, argn, vtype, value):
-        if argn == 0:
-            self.xml.set("type", vtype)
 
 class FunctionCall(NamedObject):    
     tags = ["funccall_1"]
 
 class CallArguments(ListObject):
     tags = ["callargs"]
-
-class InstructionStoreEqual(ListObject):
-    tags = ["storeequalinstruction"]
 
 class Constant(ListObject):
     tags = ["constant"]
@@ -287,13 +279,33 @@ class ExpressionContainer(ListObject):
             
         return self
 
+class InstructionUpdate(ListObject):
+    tags = ["updateinstruction"]
+
 class Switch(ListObject):
     tags = ["switch"]
     adopt_childs_tags = ['case_cblock_list']
 
-
 class Case(ListObject):
     tags = ["case_block"]
+
+class While(ListObject):
+    tags = ["whilestatement"]
+
+class For(ListObject):
+    tags = ["forstatement"]
+
+class DoWhile(ListObject):
+    tags = ["dowhilestatement"]
+
+class ForIn(ListObject):
+    tags = ["forinstatement"]
+
+class With(ListObject):
+    tags = ["withstatement"]
+
+class TryCatch(ListObject):
+    tags = ["trycatch"]
 
 class New(ListObject):
     tags = ["new_operator"]
@@ -302,16 +314,18 @@ class Parentheses(ListObject):
     tags = ["parentheses"]
     adopt_childs_tags = ['base_expression']
     
-class Unary(ListObject):
+class OpUnary(TypedObject):
     tags = ["unary_operator"]
-    def add_other(self, argn, vtype, value):
-        if argn == 0:
-            self.xml.set("type", vtype)
 
-class Ternary(ListObject):
+class OpTernary(ListObject):
     tags = ["ternary_operator"]
 
+class OpUpdate(TypedObject):
+    tags = ["updateoperator"]
+    
 
+
+# ----- keep this one at the end.
 class Unknown(TagObject):
     promote_child_if_alone = True
     set_child_argn = False
@@ -320,7 +334,7 @@ class Unknown(TagObject):
     
     @classmethod
     def can_process_tag(self, tagname): return True
-
+# -----------------
 
 def create_xml(tagname):
     classobj = None
@@ -372,35 +386,49 @@ def main():
                     dest="storepath", default=None,
                     help="store XML results in PATH")
                     
+    parser.add_option("--topython",
+                    action="store_true", dest="topython", default=False,
+                    help="write python file from xml")
+                    
 
     (options, args) = parser.parse_args()
     if options.optdebug:
         print options, args
-        
-    for filename in args:
-        bname = os.path.basename(filename)
-        print "File:", bname
-        prog = flscriptparse.parse(open(filename).read())                      
-        if not prog:
-            print "No se pudo abrir el fichero."
-            continue
-        if options.storepath is None: 
-            # Si no se quiere guardar resultado, no hace falta calcular mas
-            continue
+    if options.topython:
+        from pytnyzer import pythonize
+        for filename in args:
+            bname = os.path.basename(filename)
+            if options.storepath:
+                destname = os.path.join(options.storepath,bname+".py") 
+            else:
+                destname = filename+".py"
+            pythonize(filename, destname)
+    
+    else:        
+        for filename in args:
+            bname = os.path.basename(filename)
+            print "File:", bname
+            prog = flscriptparse.parse(open(filename).read())                      
+            if not prog:
+                print "No se pudo abrir el fichero."
+                continue
+            if options.storepath is None: 
+                # Si no se quiere guardar resultado, no hace falta calcular mas
+                continue
             
-        tree_data = flscriptparse.calctree(prog, alias_mode = 0)
-        if not tree_data:
-            print "No se pudo parsear."
-            continue
+            tree_data = flscriptparse.calctree(prog, alias_mode = 0)
+            if not tree_data:
+                print "No se pudo parsear."
+                continue
         
-        ast = post_parse(tree_data)
-        if ast is None:
-            print "No se pudo analizar."
-            continue
-        if options.storepath:
-            f1 = open(os.path.join(options.storepath,bname+".xml"),"w")
-            f1.write(etree.tostring(ast, pretty_print = True))
-            f1.close()
+            ast = post_parse(tree_data)
+            if ast is None:
+                print "No se pudo analizar."
+                continue
+            if options.storepath:
+                f1 = open(os.path.join(options.storepath,bname+".xml"),"w")
+                f1.write(etree.tostring(ast, pretty_print = True))
+                f1.close()
 
 
 
