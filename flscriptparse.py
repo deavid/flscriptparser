@@ -342,9 +342,10 @@ def p_error(t):
 
     ok_count = 0
     if t is None:
-        print "ERROR: End of the file reached."
-        yacc.errok()
-        return
+        if last_error_token != "EOF": 
+            print "ERROR: End of the file reached."
+        last_error_token = "EOF"
+        return t
     t = yacc.token() 
     yacc.restart()
     last_error_token = t
