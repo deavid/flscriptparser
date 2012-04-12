@@ -46,6 +46,8 @@ def p_parse(token):
             | variable
             | funccall
             | error
+    
+    identifier : ID
 
     array_value : LBRACKET RBRACKET
     
@@ -61,15 +63,24 @@ def p_parse(token):
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
                         | base_expression boolcmp_symbol base_expression
-                        | LPAREN base_expression RPAREN
-                        | LNOT base_expression
-                        | MINUS base_expression
-                        | PLUS base_expression
-                        | NEW funccall_1
-                        | NEW ID
-                        | base_expression CONDITIONAL1 base_expression COLON base_expression
+                        | inlinestoreinstruction
+                        | parentheses
+                        | unary_operator
+                        | new_operator
+                        | ternary_operator
                         | array_value
                         | dictobject_value
+                        
+    parentheses         : LPAREN base_expression RPAREN
+    
+    unary_operator      : LNOT base_expression
+                        | MINUS base_expression
+                        | PLUS base_expression
+                    
+    new_operator        : NEW funccall_1
+                        | NEW identifier
+                    
+    ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
     expression  : base_expression
                 | error
@@ -77,7 +88,7 @@ def p_parse(token):
     case_cblock_list  :  case_block  
     case_cblock_list  :  case_cblock_list case_block  
 
-    case_block  :  CASE base_expression COLON statement_list 
+    case_block  :  CASE expression COLON statement_list 
 
     case_default    :  DEFAULT COLON statement_list
 
@@ -179,15 +190,14 @@ def p_parse(token):
                 | LPAREN variable_1 RPAREN 
                 | LPAREN member_var RPAREN
 
-    variable_1  : ID 
-                | inlinestoreinstruction
+    variable_1  : identifier 
                 | variable_1 LBRACKET base_expression RBRACKET
                 | funccall_1 LBRACKET base_expression RBRACKET
 
-    inlinestoreinstruction  : PLUSPLUS ID 
-                            | MINUSMINUS ID 
-                            | ID PLUSPLUS 
-                            | ID MINUSMINUS 
+    inlinestoreinstruction  : PLUSPLUS variable 
+                            | MINUSMINUS variable 
+                            | variable PLUSPLUS 
+                            | variable MINUSMINUS 
 
         storeequalinstruction   : variable EQUALS expression 
                                 | variable EQUALS storeequalinstruction
@@ -214,12 +224,13 @@ def p_parse(token):
     instruction : base_instruction SEMI
                 | SEMI
                 | base_instruction 
+                
+    callinstruction : funccall
+                    | variable
+    
     base_instruction : storeinstruction
-                | funccall 
+                | callinstruction
                 | flowinstruction 
-                | variable
-                | variable PLUSPLUS
-                | variable MINUSMINUS
 
     optextends  : EXTENDS ID
                 | empty
@@ -309,8 +320,6 @@ last_error_token = None
 def p_error(t):
     global error_count
     global last_error_token
-        
-
     if repr(t) != repr(last_error_token):
         error_count += 1
         if error_count>100 or t is None:         
@@ -335,6 +344,7 @@ def p_error(t):
     #    yacc.errok()
     #else:
     if t is None:
+        print "ERROR: End of the file reached."
         yacc.errok()
         return
     t = yacc.token() 
@@ -347,7 +357,7 @@ def p_error(t):
 
 
 parser = yacc.yacc(method='LALR',debug=0, 
-      optimize = 0, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
+      optimize = 1, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
 
 #profile.run("yacc.yacc(method='LALR')")
 
@@ -393,7 +403,7 @@ def print_tokentree(token, depth = 0):
             
             print_tokentree(tk.value, depth +1)
 
-def calctree(obj, depth = 0, num = [], otype = "source"):
+def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
     #if depth > 5: return
     source_data = [
         'source',
@@ -408,17 +418,24 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
     has_data = 0
     has_objects = 0
     contentlist = []
-    ctype_alias = {
-        "member_var" : "member",
-        "member_call" : "member",
-        "variable_1" : "variable",
-        "funccall_1" : "funccall",
-        "flowinstruction" : "instruction",
-        "storeequalinstruction" : "instruction",
-        "vardecl" : "vardeclaration",
-        #"vardecl_list" : "vardeclaration",
+    
+    if alias_mode == 0:
+        ctype_alias = {}
+    elif alias_mode == 1:
+        ctype_alias = {
+            "member_var" : "member",
+            "member_call" : "member",
+            "variable_1" : "variable",
+            "funccall_1" : "funccall",
+            "flowinstruction" : "instruction",
+            "storeequalinstruction" : "instruction",
+            "vardecl" : "vardeclaration",
+            #"vardecl_list" : "vardeclaration",
         
-    }
+        }
+    else:
+        raise ValueError, "alias_mode unknown"
+        
     if otype in ctype_alias:
         otype = ctype_alias[otype]
     #print " " * depth , obj['02-size']
@@ -435,12 +452,12 @@ def calctree(obj, depth = 0, num = [], otype = "source"):
         
         if type(value) is dict:
             #print "*"
-            if depth < 60:
-                tree_obj = calctree(value,depth+1,num+[str(n)], ctype)
+            if depth < 600:
+                tree_obj = calctree(value,depth+1,num+[str(n)], ctype, alias_mode=alias_mode)
             else:
                 tree_obj = None
             if type(tree_obj) is dict:
-                if tree_obj['has_data'] and ctype != otype:
+                if (tree_obj['has_data'] or alias_mode == 0) and ctype != otype :
                     contentlist.append([ctype,tree_obj])
                     has_objects += 1
                 else:
@@ -630,6 +647,9 @@ def main():
             f1_xml = open(filename+".xml","w")
             printtree(tree_data, mode = "xml", output = f1_xml)
             f1_xml.close()
+        elif options.output == "yaml":
+            import yaml
+            print yaml.dump(tree_data['content'])
             
         else:
             print "Unknown outputmode", options.output
