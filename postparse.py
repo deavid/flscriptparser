@@ -136,8 +136,8 @@ class TypedObject(ListObject):
 
 
 class Source(ListObject):
-    tags = ["source","basicsource","classdeclarationsource","statement_list"]
-    adopt_childs_tags = ['source_element','statement_list','statement']
+    tags = ["source","basicsource","classdeclarationsource","statement_list","statement_block"]
+    adopt_childs_tags = ['source_element','statement_list','statement',"statement_block"]
 
 class Identifier(NamedObject):
     tags = ["identifier","optid"]
