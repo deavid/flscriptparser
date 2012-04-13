@@ -694,11 +694,25 @@ def file_template(ast):
     yield "line", "try: import qsatype"
     yield "line", "except ImportError: qsatype = None"
     yield "line", ""
-    yield "line", "class FormInternalObj(object):"
-    yield "begin", "block-class-FormInternalObj"
-    for dtype, data in parse_ast(ast).generate():
+    sourceclasses = etree.Element("Source")
+    for cls in ast.xpath("Class"):
+        sourceclasses.append(cls)
+
+    mainclass = etree.SubElement(sourceclasses,"Class",name="FormInternalObj")
+    mainsource = etree.SubElement(mainclass,"Source")
+
+
+    constructor = etree.SubElement(mainsource,"Function",name="__init__")
+    args = etree.SubElement(constructor,"Arguments")
+    csource = etree.SubElement(constructor,"Source")
+    for child in ast:
+        if child.tag != "Function":
+            csource.append(child)
+        else:
+            mainsource.append(child)
+    
+    for dtype, data in parse_ast(sourceclasses).generate():
         yield dtype, data
-    yield "end", "block-class-FormInternalObj"
     yield "line", ""
     yield "line", "form = FormInternalObj()"
 
