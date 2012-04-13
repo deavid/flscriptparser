@@ -49,8 +49,6 @@ def p_parse(token):
     
     identifier : ID
 
-    array_value : LBRACKET RBRACKET
-    
     dictobject_value : LBRACE RBRACE
                      | LBRACE dictobject_value_elemlist RBRACE
 
@@ -68,7 +66,6 @@ def p_parse(token):
                         | unary_operator
                         | new_operator
                         | ternary_operator
-                        | array_value
                         | dictobject_value
                         | typeof_operator
                         
@@ -199,8 +196,10 @@ def p_parse(token):
                 | LPAREN member_var RPAREN
 
     variable_1  : identifier 
-                | variable_1 LBRACKET base_expression RBRACKET
-                | funccall_1 LBRACKET base_expression RBRACKET
+                | array_member
+    
+    array_member : variable_1 LBRACKET expression RBRACKET
+                 | funccall_1 LBRACKET expression RBRACKET
 
     inlinestoreinstruction  : PLUSPLUS variable 
                             | MINUSMINUS variable 
@@ -323,8 +322,7 @@ def p_parse(token):
     optid   : ID
             | empty
 
-    trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE statement_list RBRACE
-    trycatch    : TRY LBRACE statement_list RBRACE CATCH LPAREN optid RPAREN LBRACE RBRACE
+    trycatch    : TRY statement_block CATCH LPAREN optid RPAREN statement_block
 
     empty : 
     '''

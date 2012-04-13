@@ -5,6 +5,16 @@ import os, os.path, random
 import flscriptparse
 from lxml import etree
 
+def id_translate(name):
+    if name == "false": name = "False"
+    if name == "true": name = "True"
+    if name == "null": name = "None"
+    if name == "unknown": name = "None"
+    if name == "this": name = "self"
+    if name == "exec": name = "_exec"
+    if name == "id": name = "_id"
+    return name
+
 ast_class_types = []
 
 class ASTPythonFactory(type):
@@ -32,13 +42,29 @@ class ASTPython(object):
 class Source(ASTPython):
     def generate(self, break_mode = False, include_pass = True, **kwargs):
         elems = 0
+        after_lines = []
         for child in self.elem:
             #yield "debug", "<%s %s>" % (child.tag, repr(child.attrib))
-            for dtype, data in parse_ast(child).generate(break_mode = break_mode):
+            for dtype, data in parse_ast(child).generate(break_mode = break_mode, plusplus_as_instruction = True):
+                if dtype == "line+1":
+                    after_lines.append(data)
+                    continue
                 if dtype == "line":
                     elems += 1
                 yield dtype, data
-                if dtype == "break": return
+                if dtype == "line" and after_lines:
+                    for line in after_lines:
+                        elems+=1
+                        yield dtype, line
+                    after_lines = []
+                if dtype == "break": 
+                    for line in after_lines:
+                        elems+=1
+                        yield "line", line
+                    
+        for line in after_lines:
+            elems+=1
+            yield "line", line
         if elems == 0 and include_pass:
             yield "line", "pass"
 
@@ -55,7 +81,7 @@ class Class(ASTPython):
 
 class Function(ASTPython):
     def generate(self, **kwargs):
-        name = self.elem.get("name")
+        name = id_translate(self.elem.get("name"))
         returns = self.elem.get("returns",None)
         parent = self.elem.getparent()
         grandparent = None
@@ -65,6 +91,8 @@ class Function(ASTPython):
         if grandparent is not None:
             if grandparent.tag == "Class":
                 arguments.append("self")
+                if name == grandparent.get("name"):
+                    name = "__init__"
         else:                
            arguments.append("self")
         for n,arg in enumerate(self.elem.xpath("Arguments/*")):
@@ -92,7 +120,7 @@ class Function(ASTPython):
 
 class FunctionCall(ASTPython):
     def generate(self, **kwargs):
-        name = self.elem.get("name")
+        name = id_translate(self.elem.get("name"))
         arguments = []
         for n,arg in enumerate(self.elem.xpath("CallArguments/*")):
             expr = []
@@ -107,13 +135,11 @@ class FunctionCall(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
-                
-                    
             
         yield "expr", "%s(%s)" % (name,", ".join(arguments)) 
 
 class If(ASTPython):
-    def generate(self, **kwargs):
+    def generate(self, break_mode = False, **kwargs):
         main_expr = []
         for n,arg in enumerate(self.elem.xpath("Condition/*")):
             expr = []
@@ -132,14 +158,44 @@ class If(ASTPython):
         yield "line", "if %s:" % (" ".join(main_expr))
         for source in self.elem.xpath("Source"):
             yield "begin", "block-if"
-            for obj in parse_ast(source).generate(): yield obj
+            for obj in parse_ast(source).generate(break_mode = break_mode): yield obj
             yield "end", "block-if"
             
         for source in self.elem.xpath("Else/Source"):
             yield "line", "else:"
             yield "begin", "block-else"
-            for obj in parse_ast(source).generate(): yield obj
+            for obj in parse_ast(source).generate(break_mode = break_mode): yield obj
             yield "end", "block-else"
+
+class TryCatch(ASTPython):
+    def generate(self, **kwargs):
+
+        tryblock, catchblock = self.elem.xpath("Source")
+        
+        yield "line", "try:" 
+        yield "begin", "block-try"
+        for obj in parse_ast(tryblock).generate(): yield obj
+        yield "end", "block-try"
+        
+        identifier = None
+        for ident in self.elem.xpath("Identifier"):
+            expr = []
+            for dtype, data in parse_ast(ident).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            identifier = " ".join(expr)
+        if identifier:
+            yield "line", "except Exception, %s:" % (identifier)
+        else:
+            yield "line", "except Exception:" 
+        yield "begin", "block-except"
+        if identifier:
+            yield "line", "%s = str(%s)" % (identifier, identifier)
+        for obj in parse_ast(tryblock).generate(include_pass = identifier is None): yield obj
+        yield "end", "block-except"
+            
 
 class While(ASTPython):
     def generate(self, **kwargs):
@@ -186,7 +242,7 @@ class For(ASTPython):
             for dtype, data in parse_ast(arg).generate(isolate = False):
                 if dtype == "expr": 
                     expr.append(data)
-                elif dtype == "line": 
+                elif dtype in ["line","line+1"]: 
                     incr_lines.append(data)
                 else:
                     yield dtype, data 
@@ -276,8 +332,31 @@ class Switch(ASTPython):
                     else:
                         yield obj
             yield "end", "block-if"
-        yield "line", "assert( not %s )" % name_pr
+        # yield "line", "assert( not %s )" % name_pr
         # yield "line", "assert( %s )" % name_pr2
+
+class With(ASTPython):
+    def generate(self, **kwargs):
+        key = "%02x" % random.randint(0,255)
+        name = "w%s_obj" % key
+        yield "debug", "WITH: %s" % key
+        variable, source = [ obj for obj in self.elem ]
+        var_expr = []
+        for dtype, data in parse_ast(variable).generate(isolate = False):
+            if dtype == "expr": 
+                var_expr.append(data)
+            else:
+                yield dtype, data 
+        if len(var_expr) == 0:
+            var_expr.append("None")
+            yield "debug", "Expression %d not understood" % n
+            yield "debug", etree.tostring(arg)
+        
+        yield "line", "%s = %s" % (name, " ".join(var_expr))
+        
+        for obj in parse_ast(source).generate(break_mode = True): 
+            yield obj
+        yield "line", "del %s" % name
          
 class Variable(ASTPython):
     def generate(self, force_value = False, **kwargs):
@@ -316,6 +395,7 @@ class InstructionUpdate(ASTPython):
             expr = []
             for dtype, data in parse_ast(arg).generate(isolate=False):
                 if dtype == "expr": 
+                    if data is None: raise ValueError, etree.tostring(arg)
                     expr.append(data)
                 else:
                     yield dtype, data 
@@ -345,14 +425,19 @@ class InlineUpdate(ASTPython):
             else:
                 arguments.append(" ".join(expr))
         ctype = self.elem.get("type")
+        mode = self.elem.get("mode")
+        linetype = "line"
         if not plusplus_as_instruction:   
+            if mode == "read-update":
+                linetype = "line+1"
+                
             yield "expr", arguments[0]
         if ctype == "PLUSPLUS":
-            yield "line", arguments[0] + "+= 1"
+            yield linetype, arguments[0] + " += 1"
         elif ctype == "MINUSMINUS":
-            yield "line", arguments[0] + "-= 1"
+            yield linetype, arguments[0] + " -= 1"
         else:
-            yield "line", arguments[0] + "?= 1"
+            yield linetype, arguments[0] + " ?= 1"
         
 class InstructionCall(ASTPython):
     def generate(self, **kwargs):
@@ -395,9 +480,14 @@ class InstructionFlow(ASTPython):
         if ctype == "RETURN": kw = "return"
         if ctype == "BREAK": 
             kw = "break"
-            if break_mode: yield "break", kw + " " + ", ".join(arguments)
+            if break_mode: 
+                yield "break", kw + " " + ", ".join(arguments)
+                return
         if ctype == "CONTINUE": kw = "continue"
         
+        if ctype == "THROW":
+            yield "line", "Exception(" + ", ".join(arguments) + ")"
+            return
                 
         yield "line", kw + " " + ", ".join(arguments)
         
@@ -421,6 +511,25 @@ class Member(ASTPython):
                 arguments.append(" ".join(expr))
                 
         yield "expr", ".".join(arguments)
+
+class ArrayMember(ASTPython):
+    def generate(self, **kwargs):
+        arguments = []
+        for n,arg in enumerate(self.elem):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate=False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) == 0:
+                arguments.append("unknownarg")
+                yield "debug", "Argument %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                arguments.append(" ".join(expr))
+                
+        yield "expr", "%s[%s]" % (arguments[0],arguments[1])
         
 
 class Value(ASTPython):
@@ -428,6 +537,7 @@ class Value(ASTPython):
         if isolate: yield "expr", "("
         for child in self.elem:
             for dtype, data in parse_ast(child).generate():
+                if data is None: raise ValueError, etree.tostring(child)
                 yield dtype, data
         if isolate: yield "expr", ")"
 
@@ -451,6 +561,7 @@ class OpUnary(ASTPython):
     def generate(self, isolate = False, **kwargs):
         ctype = self.elem.get("type")
         if ctype == "LNOT": yield "expr", "not"
+        elif ctype == "MINUS": yield "expr", "-"
         else: yield "expr", ctype
         if isolate: yield "expr", "("
         for child in self.elem:
@@ -477,17 +588,32 @@ class Constant(ASTPython):
     def generate(self, **kwargs):
         ctype = self.elem.get("type")
         value = self.elem.get("value")
+        if ctype is None or value is None:
+            for child in self.elem:
+                if child.tag == "CallArguments":
+                    arguments = []
+                    for n,arg in enumerate(child):
+                        expr = []
+                        for dtype, data in parse_ast(arg).generate(isolate = False):
+                            if dtype == "expr": 
+                                expr.append(data)
+                            else:
+                                yield dtype, data 
+                        if len(expr) == 0:
+                            arguments.append("unknownarg")
+                            yield "debug", "Argument %d not understood" % n
+                            yield "debug", etree.tostring(arg)
+                        else:
+                            arguments.append(" ".join(expr))
+                        
+                    yield "expr", "qsatype.Array([%s])" % (", ".join(arguments)) 
+            return
         if ctype == "String": yield "expr", "\"%s\"" % value
         else: yield "expr", value
 
 class Identifier(ASTPython):
     def generate(self, **kwargs):
-        name = self.elem.get("name")
-        if name == "false": name = "False"
-        if name == "true": name = "True"
-        if name == "null": name = "None"
-        if name == "unknown": name = "None"
-        if name == "this": name = "self"
+        name = id_translate(self.elem.get("name"))
         yield "expr", name
 
 class OpUpdate(ASTPython):
@@ -537,7 +663,7 @@ class DeclarationBlock(ASTPython):
             expr = []
             for dtype, data in parse_ast(var).generate(force_value=True):
                 if dtype == "expr": 
-                    if data is None: data = "[None]"
+                    if data is None: raise ValueError, etree.tostring(var)
                     expr.append(data)
                 else: yield dtype,data
             yield "line", " ".join(expr)
@@ -563,32 +689,57 @@ def parse_ast(elem):
     return elemparser.polish()
 
 
+def file_template(ast):
+    yield "line", "# encoding: UTF-8"
+    yield "line", "try: import qsatype"
+    yield "line", "except ImportError: qsatype = None"
+    yield "line", ""
+    yield "line", "class FormInternalObj(object):"
+    yield "begin", "block-class-FormInternalObj"
+    for dtype, data in parse_ast(ast).generate():
+        yield dtype, data
+    yield "end", "block-class-FormInternalObj"
+    yield "line", ""
+    yield "line", "form = FormInternalObj()"
+
 def write_python_file(fobj, ast):
     indent = []
     indent_text = "    "
-    for dtype, data in parse_ast(ast).generate():
+    last_line_for_indent = {}
+    numline = 0
+    for dtype, data in file_template(ast):
         line = None
-        if dtype == "line": line = data
+        if dtype == "line": 
+            line = data
+            numline +=1
+            try: lines_since_last_indent = numline - last_line_for_indent[len(indent)] 
+            except KeyError: lines_since_last_indent = 0
+            if lines_since_last_indent > 4:
+                fobj.write((len(indent)*indent_text) + "\n") 
+            last_line_for_indent[len(indent)] = numline
         if dtype == "debug": line = "# DEBUG:: " + data
         if dtype == "expr": line = "# EXPR??:: " + data
+        if dtype == "line+1": line = "# LINE+1??:: " + data
         if dtype == "begin": 
             #line = "# BEGIN:: " + data
             indent.append(data)
+            last_line_for_indent[len(indent)] = numline
         if dtype == "end": 
             if data not in ["block-if"]:
                 #line = "# END:: " + data
                 pass
             endblock = indent.pop()
             if endblock != data:
-                line = "# END-ERROR!! was %s but %s found." % (endblock, data)
+                line = "# END-ERROR!! was %s but %s found. (%s)" % (endblock, data,repr(indent))
             
         if line is not None:
             if type(line) is unicode: line = line.encode("UTF-8","replace")
             fobj.write((len(indent)*indent_text) + line + "\n") 
 
         if dtype == "end": 
-            if data not in ["block-if"]:
+            if data.split("-")[1] in ["class","def","else","except"]:
                 fobj.write((len(indent)*indent_text) + "\n") 
+                last_line_for_indent[len(indent)] = numline
 
 def pythonize(filename, destfilename):
     bname = os.path.basename(filename)

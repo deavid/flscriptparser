@@ -2,6 +2,7 @@
 from optparse import OptionParser
 import os, os.path
 import flscriptparse
+import imp, traceback
 from lxml import etree
 USEFUL_TOKENS="ID,ICONST,FCONST,SCONST,CCONST,RXCONST".split(",")
 
@@ -206,6 +207,12 @@ class Member(TagObject):
     tags = ["member_var","member_call"]
     adopt_childs_tags = ['varmemcall',"member_var","member_call"]
 
+class ArrayMember(TagObject):
+    debug_other = False
+    set_child_argn = False
+    tags = ["array_member"]
+    adopt_childs_tags = ['variable_1',"func_call"]
+
 class InstructionCall(TagObject):
     debug_other = False
     tags = ["callinstruction"]
@@ -391,7 +398,27 @@ def post_parse(treedata):
     source = parse("source",treedata)
     #print UNKNOWN_PARSERS.keys()
     return source.xml
-
+    
+class Module:
+    def __init__(self, name, path):
+        self.name = name
+        self.path = path
+    def loadModule(self):
+        fp = None
+        try:
+            description = ('.py', 'U', 1)
+            pathname = os.path.join(self.path, self.name)
+            fp = open(pathname)
+            name = self.name[:self.name.find(".")]
+            # fp, pathname, description = imp.find_module(self.name,[self.path])
+            self.module = imp.load_module(name, fp, pathname, description)
+            result = True
+        except Exception,e:
+            print traceback.format_exc()
+            result = False
+        if fp:
+            fp.close()   
+        return result
 
 def main():
     parser = OptionParser()
@@ -415,11 +442,27 @@ def main():
                     action="store_true", dest="topython", default=False,
                     help="write python file from xml")
                     
+    parser.add_option("--py",
+                    action="store_true", dest="exec_python", default=False,
+                    help="try to execute python file")
+                    
 
     (options, args) = parser.parse_args()
     if options.optdebug:
         print options, args
-    if options.topython:
+    if options.exec_python:
+        import qsatype
+        for filename in args:
+            realpath = os.path.realpath(filename)
+            path, name = os.path.split(realpath)
+            mod = Module(name, path)
+            if mod.loadModule():
+                print mod.module
+                print mod.module.form
+            else:
+                print "Error cargando modulo %s" % name
+            
+    elif options.topython:
         from pytnyzer import pythonize
         for filename in args:
             bname = os.path.basename(filename)
