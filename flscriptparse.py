@@ -318,7 +318,7 @@ def p_parse(token):
     forinstatement  : FOR LPAREN for_initialize IN variable RPAREN statement_block 
                     | error
 
-    switch  : SWITCH LPAREN expression RPAREN LBRACE case_block_list RBRACE
+    switch  : SWITCH LPAREN condition RPAREN LBRACE case_block_list RBRACE
 
     optid   : ID
             | empty

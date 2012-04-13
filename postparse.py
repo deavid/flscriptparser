@@ -248,6 +248,15 @@ class Constant(ListObject):
         self.const_type = vtype
         self.xml.set("type",vtype)
         self.xml.set("value",value)
+        
+class InlineUpdate(ListObject):
+    tags = ["inlinestoreinstruction"]
+    def add_other(self, argn, vtype, value):
+        self.xml.set("type", vtype)
+        if argn == 0:
+            self.xml.set("mode", "update-read")
+        if argn == 1:
+            self.xml.set("mode", "read-update")
 
 class If(ListObject):
     tags = ["ifstatement"]
@@ -284,10 +293,17 @@ class InstructionUpdate(ListObject):
 
 class Switch(ListObject):
     tags = ["switch"]
-    adopt_childs_tags = ['case_cblock_list']
+    adopt_childs_tags = ['case_cblock_list','case_block_list']
+
+class CaseList(ListObject):
+    tags = ["case_block_list"]
+    adopt_childs_tags = ['case_cblock_list','case_block_list']
 
 class Case(ListObject):
     tags = ["case_block"]
+
+class CaseDefault(ListObject):
+    tags = ["case_default"]
 
 class While(ListObject):
     tags = ["whilestatement"]
@@ -295,6 +311,15 @@ class While(ListObject):
 class For(ListObject):
     tags = ["forstatement"]
 
+class ForInitialize(ListObject):
+    tags = ["for_initialize"]
+
+class ForCompare(ListObject):
+    tags = ["for_compare"]
+
+class ForIncrement(ListObject):
+    tags = ["for_increment"]    
+    
 class DoWhile(ListObject):
     tags = ["dowhilestatement"]
 

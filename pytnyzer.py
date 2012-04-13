@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # ------ Pythonyzer ... reads XML AST created by postparse.py and creates an equivalent Python file.
 from optparse import OptionParser
-import os, os.path
+import os, os.path, random
 import flscriptparse
 from lxml import etree
 
@@ -30,15 +30,16 @@ class ASTPython(object):
     
 
 class Source(ASTPython):
-    def generate(self, **kwargs):
+    def generate(self, break_mode = False, include_pass = True, **kwargs):
         elems = 0
         for child in self.elem:
             #yield "debug", "<%s %s>" % (child.tag, repr(child.attrib))
-            for dtype, data in parse_ast(child).generate():
+            for dtype, data in parse_ast(child).generate(break_mode = break_mode):
                 if dtype == "line":
                     elems += 1
                 yield dtype, data
-        if elems == 0:
+                if dtype == "break": return
+        if elems == 0 and include_pass:
             yield "line", "pass"
 
 class Class(ASTPython):
@@ -138,15 +139,152 @@ class If(ASTPython):
             yield "line", "else:"
             yield "begin", "block-else"
             for obj in parse_ast(source).generate(): yield obj
-            yield "begin", "block-end"
+            yield "end", "block-else"
 
+class While(ASTPython):
+    def generate(self, **kwargs):
+        main_expr = []
+        for n,arg in enumerate(self.elem.xpath("Condition/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) == 0:
+                main_expr.append("False")
+                yield "debug", "Expression %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                main_expr.append(" ".join(expr))
+        
+        yield "line", "while %s:" % (" ".join(main_expr))
+        for source in self.elem.xpath("Source"):
+            yield "begin", "block-while"
+            for obj in parse_ast(source).generate(): yield obj
+            yield "end", "block-while"
+
+class For(ASTPython):
+    def generate(self, **kwargs):
+        main_expr = []
+        for n,arg in enumerate(self.elem.xpath("ForInitialize/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) > 0:
+                main_expr.append(" ".join(expr))
+        if main_expr:
+            yield "line", " ".join(main_expr)
+
+        incr_expr = []
+        incr_lines = []
+        for n,arg in enumerate(self.elem.xpath("ForIncrement/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                elif dtype == "line": 
+                    incr_lines.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) > 0:
+                incr_expr.append(" ".join(expr))
+
+            
+        main_expr = []
+        for n,arg in enumerate(self.elem.xpath("ForCompare/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) == 0:
+                main_expr.append("True")
+            else:
+                main_expr.append(" ".join(expr))
+        yield "debug", "FOR:"
+        yield "line", "while %s:" % (" ".join(main_expr))
+        for source in self.elem.xpath("Source"):
+            yield "begin", "block-for"
+            for obj in parse_ast(source).generate(include_pass=False): yield obj
+            if incr_lines: 
+                for line in incr_lines:
+                    yield "line", line
+            yield "end", "block-for"
+            
+class Switch(ASTPython):
+    def generate(self, **kwargs):
+        key = "%02x" % random.randint(0,255)
+        name = "s%s_when" % key
+        name_pr = "s%s_do_work" % key
+        name_pr2 = "s%s_work_done" % key
+        main_expr = []
+        for n,arg in enumerate(self.elem.xpath("Condition/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) == 0:
+                main_expr.append("False")
+                yield "debug", "Expression %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                main_expr.append(" ".join(expr))
+        yield "line", "%s = %s" % (name, " ".join(main_expr))
+        yield "line", "%s,%s = %s,%s" % (name_pr,name_pr2, "False","False")
+        for scase in self.elem.xpath("Case"):
+            value_expr = []
+            for n,arg in enumerate(scase.xpath("Value")):
+                expr = []
+                for dtype, data in parse_ast(arg).generate(isolate = False):
+                    if dtype == "expr": 
+                        expr.append(data)
+                    else:
+                        yield dtype, data 
+                if len(expr) == 0:
+                    value_expr.append("False")
+                    yield "debug", "Expression %d not understood" % n
+                    yield "debug", etree.tostring(arg)
+                else:
+                    value_expr.append(" ".join(expr))
+
+            yield "line", "if %s == %s: %s,%s = %s,%s" % (name," ".join(value_expr),name_pr,name_pr2, "True", "True")
+            yield "line", "if %s:" % (name_pr)
+            yield "begin", "block-if"
+            for source in scase.xpath("Source"):
+                for obj in parse_ast(source).generate(break_mode = True): 
+                    if obj[0] == "break":
+                        yield "line", "%s = %s # BREAK" % (name_pr,"False")
+                    else:
+                        yield obj
+            yield "end", "block-if"
+            
+        for scasedefault in self.elem.xpath("CaseDefault"):
+            yield "line", "if not %s: %s,%s = %s,%s" % (name_pr2, name_pr,name_pr2, "True", "True")
+            yield "line", "if %s:" % (name_pr)
+            yield "begin", "block-if"
+            for source in scasedefault.xpath("Source"):
+                for obj in parse_ast(source).generate(break_mode = True): 
+                    if obj[0] == "break":
+                        yield "line", "%s = %s # BREAK" % (name_pr,"False")
+                    else:
+                        yield obj
+            yield "end", "block-if"
+        yield "line", "assert( not %s )" % name_pr
+        # yield "line", "assert( %s )" % name_pr2
          
 class Variable(ASTPython):
     def generate(self, force_value = False, **kwargs):
         name = self.elem.get("name")
         yield "expr", name
         values = 0
-        for value in self.elem.xpath("Value"):
+        for value in self.elem.xpath("Value|Expression"):
             values += 1
             yield "expr", "="
             expr = 0
@@ -189,6 +327,32 @@ class InstructionUpdate(ASTPython):
                 arguments.append(" ".join(expr))
                 
         yield "line", " ".join(arguments)
+
+class InlineUpdate(ASTPython):
+    def generate(self, plusplus_as_instruction = False, **kwargs):
+        arguments = []
+        for n,arg in enumerate(self.elem):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate=False):
+                if dtype == "expr": 
+                    expr.append(data)
+                else:
+                    yield dtype, data 
+            if len(expr) == 0:
+                arguments.append("unknownarg")
+                yield "debug", "Argument %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                arguments.append(" ".join(expr))
+        ctype = self.elem.get("type")
+        if not plusplus_as_instruction:   
+            yield "expr", arguments[0]
+        if ctype == "PLUSPLUS":
+            yield "line", arguments[0] + "+= 1"
+        elif ctype == "MINUSMINUS":
+            yield "line", arguments[0] + "-= 1"
+        else:
+            yield "line", arguments[0] + "?= 1"
         
 class InstructionCall(ASTPython):
     def generate(self, **kwargs):
@@ -210,7 +374,7 @@ class InstructionCall(ASTPython):
         yield "line", " ".join(arguments)
 
 class InstructionFlow(ASTPython):
-    def generate(self, **kwargs):
+    def generate(self, break_mode = False, **kwargs):
         arguments = []
         for n,arg in enumerate(self.elem):
             expr = []
@@ -229,7 +393,9 @@ class InstructionFlow(ASTPython):
         ctype = self.elem.get("type")
         kw = ctype
         if ctype == "RETURN": kw = "return"
-        if ctype == "BREAK": kw = "break"
+        if ctype == "BREAK": 
+            kw = "break"
+            if break_mode: yield "break", kw + " " + ", ".join(arguments)
         if ctype == "CONTINUE": kw = "continue"
         
                 
@@ -273,6 +439,14 @@ class Expression(ASTPython):
                 yield dtype, data
         if isolate: yield "expr", ")"
 
+class Parentheses(ASTPython):
+    def generate(self, **kwargs):
+        yield "expr", "("
+        for child in self.elem:
+            for dtype, data in parse_ast(child).generate(isolate = False):
+                yield dtype, data
+        yield "expr", ")"
+
 class OpUnary(ASTPython):
     def generate(self, isolate = False, **kwargs):
         ctype = self.elem.get("type")
@@ -292,7 +466,10 @@ class New(ASTPython):
                     yield dtype, data
                     continue
                 if child.tag == "Identifier": data = data+"()"
-                if data[:data.find("(")].find(".") == -1: data = "qsatype." + data
+                ident = data[:data.find("(")]
+                if ident.find(".") == -1: 
+                    if len(self.elem.xpath("//Class[@name='%s']" % ident)) == 0:
+                        data = "qsatype." + data
                 yield dtype, data
         
 
@@ -317,10 +494,10 @@ class OpUpdate(ASTPython):
     def generate(self, **kwargs):
         ctype = self.elem.get("type")
         if ctype == "EQUALS": yield "expr", "="
-        elif ctype == "PLUSEQUALS": yield "expr", "+="
-        elif ctype == "MINUSEQUALS": yield "expr", "-="
-        elif ctype == "TIMESEQUALS": yield "expr", "*="
-        elif ctype == "DIVEQUALS": yield "expr", "/="
+        elif ctype == "PLUSEQUAL": yield "expr", "+="
+        elif ctype == "MINUSEQUAL": yield "expr", "-="
+        elif ctype == "TIMESEQUAL": yield "expr", "*="
+        elif ctype == "DIVEQUAL": yield "expr", "/="
         else: yield "expr", ctype
 
 class Compare(ASTPython):
@@ -333,6 +510,8 @@ class Compare(ASTPython):
         elif ctype == "EQ": yield "expr", "=="
         elif ctype == "NE": yield "expr", "!="
         elif ctype == "IN": yield "expr", "in"
+        elif ctype == "LOR": yield "expr", "or"
+        elif ctype == "LAND": yield "expr", "and"
         else: yield "expr", ctype
         
 class OpMath(ASTPython):
@@ -357,7 +536,9 @@ class DeclarationBlock(ASTPython):
         for var in self.elem:
             expr = []
             for dtype, data in parse_ast(var).generate(force_value=True):
-                if dtype == "expr": expr.append(data)
+                if dtype == "expr": 
+                    if data is None: data = "[None]"
+                    expr.append(data)
                 else: yield dtype,data
             yield "line", " ".join(expr)
                     
