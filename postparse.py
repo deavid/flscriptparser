@@ -442,15 +442,42 @@ def main():
                     action="store_true", dest="topython", default=False,
                     help="write python file from xml")
                     
-    parser.add_option("--py",
+    parser.add_option("--exec-py",
                     action="store_true", dest="exec_python", default=False,
                     help="try to execute python file")
                     
+    parser.add_option("--toxml",
+                    action="store_true", dest="toxml", default=False,
+                    help="write xml file from qs")
+
+    parser.add_option("--full",
+                    action="store_true", dest="full", default=False,
+                    help="write xml file from qs")
 
     (options, args) = parser.parse_args()
+    execute(options,args)
+    
+def execute(options, args):
     if options.optdebug:
         print options, args
-    if options.exec_python:
+    if options.full:
+        options.full = False
+        options.toxml = True
+        print "Pass 1 - Parse and write XML file . . ."
+        execute(options,args)
+        
+        options.toxml = False
+        options.topython = True
+        print "Pass 2 - Pythonize and write PY file . . ."
+        execute(options,[ arg+".xml" for arg in args])
+
+        options.topython = False
+        options.exec_python = True
+        print "Pass 3 - Test PY file load . . ."
+        execute(options,[ arg.replace(".qs",".py") for arg in args])
+        print "Done."
+        
+    elif options.exec_python:
         import qsatype
         for filename in args:
             realpath = os.path.realpath(filename)
@@ -470,6 +497,7 @@ def main():
                 destname = os.path.join(options.storepath,bname+".py") 
             else:
                 destname = filename+".py"
+            destname = destname.replace(".qs.xml.py",".py")
             pythonize(filename, destname)
     
     else:        
@@ -480,7 +508,7 @@ def main():
             if not prog:
                 print "No se pudo abrir el fichero."
                 continue
-            if options.storepath is None: 
+            if options.toxml == False: 
                 # Si no se quiere guardar resultado, no hace falta calcular mas
                 continue
             
@@ -494,9 +522,12 @@ def main():
                 print "No se pudo analizar."
                 continue
             if options.storepath:
-                f1 = open(os.path.join(options.storepath,bname+".xml"),"w")
-                f1.write(etree.tostring(ast, pretty_print = True))
-                f1.close()
+                destname = os.path.join(options.storepath,bname+".xml") 
+            else:
+                destname = filename+".xml"
+            f1 = open(destname,"w")
+            f1.write(etree.tostring(ast, pretty_print = True))
+            f1.close()
 
 
 
