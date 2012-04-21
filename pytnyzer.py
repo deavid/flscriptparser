@@ -121,6 +121,15 @@ class Function(ASTPython):
 class FunctionCall(ASTPython):
     def generate(self, **kwargs):
         name = id_translate(self.elem.get("name"))
+        parent = self.elem.getparent()
+        if parent.tag == "InstructionCall":
+            classes = parent.xpath("ancestor::Class")
+            if classes:
+                class_ = classes[-1]
+                extends = class_.get("extends")
+                if extends == name:
+                    name = "super(%s, self).__init__" % class_.get("name")
+            
         arguments = []
         for n,arg in enumerate(self.elem.xpath("CallArguments/*")):
             expr = []
@@ -486,7 +495,7 @@ class InstructionFlow(ASTPython):
         if ctype == "CONTINUE": kw = "continue"
         
         if ctype == "THROW":
-            yield "line", "Exception(" + ", ".join(arguments) + ")"
+            yield "line", "raise Exception(" + ", ".join(arguments) + ")"
             return
                 
         yield "line", kw + " " + ", ".join(arguments)
@@ -658,6 +667,7 @@ class OpMath(ASTPython):
 class DeclarationBlock(ASTPython):
     def generate(self, **kwargs):
         mode = self.elem.get("mode")
+        is_constructor = self.elem.get("constructor")
         if mode == "CONST": yield "debug", "Const Declaration:"
         for var in self.elem:
             expr = []
@@ -666,6 +676,8 @@ class DeclarationBlock(ASTPython):
                     if data is None: raise ValueError, etree.tostring(var)
                     expr.append(data)
                 else: yield dtype,data
+            if is_constructor:
+                expr[0] = "self."+expr[0]
             yield "line", " ".join(expr)
                     
 
@@ -691,22 +703,24 @@ def parse_ast(elem):
 
 def file_template(ast):
     yield "line", "# encoding: UTF-8"
-    yield "line", "try: import qsatype"
-    yield "line", "except ImportError: qsatype = None"
+    yield "line", "import qsatype"
+    yield "line", "from qsaglobals import *"
     yield "line", ""
     sourceclasses = etree.Element("Source")
     for cls in ast.xpath("Class"):
         sourceclasses.append(cls)
 
-    mainclass = etree.SubElement(sourceclasses,"Class",name="FormInternalObj")
+    mainclass = etree.SubElement(sourceclasses,"Class",name="FormInternalObj",extends="qsatype.FormDBWidget")
     mainsource = etree.SubElement(mainclass,"Source")
 
 
-    constructor = etree.SubElement(mainsource,"Function",name="__init__")
+    constructor = etree.SubElement(mainsource,"Function",name="_class_init")
     args = etree.SubElement(constructor,"Arguments")
     csource = etree.SubElement(constructor,"Source")
+    
     for child in ast:
         if child.tag != "Function":
+            child.set("constructor","1")
             csource.append(child)
         else:
             mainsource.append(child)

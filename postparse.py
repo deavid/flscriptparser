@@ -406,7 +406,8 @@ class Module:
     def loadModule(self):
         fp = None
         try:
-            description = ('.py', 'U', 1)
+            description = ('.py', 'U', imp.PY_SOURCE)
+            #description = ('.pyc', 'U', PY_COMPILED)
             pathname = os.path.join(self.path, self.name)
             fp = open(pathname)
             name = self.name[:self.name.find(".")]
@@ -473,8 +474,8 @@ def execute(options, args):
 
         options.topython = False
         options.exec_python = True
-        print "Pass 3 - Test PY file load . . ."
-        execute(options,[ arg.replace(".qs",".py") for arg in args])
+        #print "Pass 3 - Test PY file load . . ."
+        #execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
         print "Done."
         
     elif options.exec_python:
