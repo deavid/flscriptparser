@@ -393,7 +393,13 @@ class Variable(ASTPython):
             elif dtype == "Number":
                 yield "expr", "0"
             else:
-                yield "expr", "qsatype.%s()" % dtype
+                parent1 = self.elem.getparent()
+                parent2 = parent1.getparent()
+                parent3 = parent2.getparent()
+                if parent2 == "Source" and parent3 == "Class":
+                    yield "expr", "None"
+                else:
+                    yield "expr", "qsatype.%s()" % dtype
             
         #if dtype and force_value == False: yield "debug", "Variable %s:%s" % (name,dtype)
 
@@ -728,7 +734,7 @@ def file_template(ast):
     for dtype, data in parse_ast(sourceclasses).generate():
         yield dtype, data
     yield "line", ""
-    yield "line", "form = FormInternalObj()"
+    yield "line", "form = None"
 
 def write_python_file(fobj, ast):
     indent = []
