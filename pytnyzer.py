@@ -201,8 +201,9 @@ class TryCatch(ASTPython):
             yield "line", "except Exception:" 
         yield "begin", "block-except"
         if identifier:
-            yield "line", "%s = str(%s)" % (identifier, identifier)
-        for obj in parse_ast(tryblock).generate(include_pass = identifier is None): yield obj
+            # yield "line", "%s = str(%s)" % (identifier, identifier)
+            yield "line", "%s = traceback.format_exc()" % (identifier)
+        for obj in parse_ast(catchblock).generate(include_pass = identifier is None): yield obj
         yield "end", "block-except"
             
 
@@ -709,8 +710,9 @@ def parse_ast(elem):
 
 def file_template(ast):
     yield "line", "# encoding: UTF-8"
-    yield "line", "import qsatype"
-    yield "line", "from qsaglobals import *"
+    yield "line", "from pineboolib import qsatype"
+    yield "line", "from pineboolib.qsaglobals import *"
+    yield "line", "import traceback"
     yield "line", ""
     sourceclasses = etree.Element("Source")
     for cls in ast.xpath("Class"):
