@@ -13,6 +13,8 @@ def id_translate(name):
     if name == "this": name = "self"
     if name == "exec": name = "_exec"
     if name == "id": name = "_id"
+
+    if name == "startsWith": name = "startswith"
     return name
 
 ast_class_types = []
