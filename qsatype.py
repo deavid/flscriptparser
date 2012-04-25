@@ -9,6 +9,9 @@ class Array(object):
 
 class FLSqlCursor(object):
     pass
+
+class Boolean(object):
+    pass
     
 
 

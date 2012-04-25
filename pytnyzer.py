@@ -525,6 +525,16 @@ class Member(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
+        if arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
+            # From: self.iface.__function()
+            # to: super(className, self.iface).function()
+            funs = self.elem.xpath("ancestor::Function")
+            if funs:
+                fun = funs[-1]
+                name_parts = fun.get("name").split("_")
+                classname = name_parts[0]
+                arguments[2] = arguments[2][2:]
+                arguments[0:2] = ["super(%s, %s)" % (classname,".".join(arguments[0:2]))]
                 
         yield "expr", ".".join(arguments)
 
@@ -624,7 +634,7 @@ class Constant(ASTPython):
                         
                     yield "expr", "qsatype.Array([%s])" % (", ".join(arguments)) 
             return
-        if ctype == "String": yield "expr", "\"%s\"" % value
+        if ctype == "String": yield "expr", "u\"%s\"" % value
         else: yield "expr", value
 
 class Identifier(ASTPython):
