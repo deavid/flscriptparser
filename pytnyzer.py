@@ -6,14 +6,16 @@ import flscriptparse
 from lxml import etree
 
 def id_translate(name):
+    python_keywords = ['and', 'del', 'for', 'is', 'raise', 'assert', 'elif', 
+    'from', 'lambda', 'return', 'break', 'else', 'global', 'not', 'try', 
+    'class', 'except', 'if', 'or', 'while', 'continue', 
+    'exec', 'import', 'pass', 'yield', 'def', 'finally', 'in', 'print']
+    if name in python_keywords: return name + "_"
     if name == "false": name = "False"
     if name == "true": name = "True"
     if name == "null": name = "None"
     if name == "unknown": name = "None"
     if name == "this": name = "self"
-    if name == "exec": name = "exec_"
-    if name == "id": name = "id_"
-    if name == "from": name = "from_"
 
     if name == "startsWith": name = "startswith"
     return name
@@ -110,6 +112,7 @@ class Function(ASTPython):
                 yield "debug", "Argument %d not understood" % n
                 yield "debug", etree.tostring(arg)
             else:
+                if len(expr) == 1: expr += ["=","None"]
                 arguments.append(" ".join(expr))
                 
                     
@@ -581,7 +584,7 @@ class Expression(ASTPython):
         for child in self.elem:
             coerce_to_string = False
             if coerce_string_mode == True:
-                if child.tag in ["Identifier"]: coerce_to_string = True
+                if child.tag in ["Identifier","Member"]: coerce_to_string = True
             if coerce_to_string:
                 yield "expr", "ustr("
             for dtype, data in parse_ast(child).generate():
@@ -649,7 +652,12 @@ class Constant(ASTPython):
                         
                     yield "expr", "qsatype.Array([%s])" % (", ".join(arguments)) 
             return
-        if ctype == "String": yield "expr", "u\"%s\"" % value
+        if ctype == "String": 
+            delim = self.elem.get("delim")
+            if delim == "'":
+                yield "expr", "u'%s'" % value
+            else:
+                yield "expr", "u\"%s\"" % value
         else: yield "expr", value
 
 class Identifier(ASTPython):

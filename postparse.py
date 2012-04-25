@@ -247,7 +247,11 @@ class Constant(ListObject):
         if vtype == "SCONST": 
             vtype = "String"
             value = value[1:-1]
-        if vtype == "CCONST": vtype = "String"
+            self.xml.set("delim",'"')
+        if vtype == "CCONST": 
+            vtype = "String"
+            value = value[1:-1]
+            self.xml.set("delim","'")
         if vtype == "RCONST": vtype = "Regex"
         if vtype == "ICONST": vtype = "Number"
         if vtype == "FCONST": vtype = "Number"
