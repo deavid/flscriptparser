@@ -32,8 +32,8 @@ def cnvrt(val):
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
     ('left','LOR', 'LAND'),
-    ('right', 'LNOT'),
     ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE'),
+    ('right', 'LNOT'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE', 'MOD'),
     ('left', 'OR', 'AND', 'XOR', 'LSHIFT', 'RSHIFT'),

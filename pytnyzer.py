@@ -570,6 +570,7 @@ class Value(ASTPython):
         if isolate: yield "expr", ")"
 
 class Expression(ASTPython):
+    tags = ["base_expression"]
     def generate(self, isolate = True, **kwargs):
         if isolate: yield "expr", "("
         for child in self.elem:
