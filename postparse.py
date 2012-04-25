@@ -342,6 +342,9 @@ class TryCatch(ListObject):
 class New(ListObject):
     tags = ["new_operator"]
     
+class Delete(ListObject):
+    tags = ["deleteinstruction"]
+    
 class Parentheses(ListObject):
     tags = ["parentheses"]
     adopt_childs_tags = ['base_expression']

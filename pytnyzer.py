@@ -11,8 +11,9 @@ def id_translate(name):
     if name == "null": name = "None"
     if name == "unknown": name = "None"
     if name == "this": name = "self"
-    if name == "exec": name = "_exec"
-    if name == "id": name = "_id"
+    if name == "exec": name = "exec_"
+    if name == "id": name = "id_"
+    if name == "from": name = "from_"
 
     if name == "startsWith": name = "startswith"
     return name
@@ -101,7 +102,7 @@ class Function(ASTPython):
             expr = []
             for dtype, data in parse_ast(arg).generate():
                 if dtype == "expr": 
-                    expr.append(data)
+                    expr.append(id_translate(data))
                 else:
                     yield dtype, data 
             if len(expr) == 0:
@@ -573,9 +574,20 @@ class Expression(ASTPython):
     tags = ["base_expression"]
     def generate(self, isolate = True, **kwargs):
         if isolate: yield "expr", "("
+        coerce_string_mode = False
+        if self.elem.xpath("OpMath[@type=\"PLUS\"]"):
+            if self.elem.xpath("Constant[@type=\"String\"]"):
+                coerce_string_mode = True
         for child in self.elem:
+            coerce_to_string = False
+            if coerce_string_mode == True:
+                if child.tag in ["Identifier"]: coerce_to_string = True
+            if coerce_to_string:
+                yield "expr", "ustr("
             for dtype, data in parse_ast(child).generate():
                 yield dtype, data
+            if coerce_to_string:
+                yield "expr", ")"
         if isolate: yield "expr", ")"
 
 class Parentheses(ASTPython):
