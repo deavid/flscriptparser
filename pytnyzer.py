@@ -581,16 +581,19 @@ class Expression(ASTPython):
         if self.elem.xpath("OpMath[@type=\"PLUS\"]"):
             if self.elem.xpath("Constant[@type=\"String\"]"):
                 coerce_string_mode = True
+        if coerce_string_mode:
+            yield "expr", "ustr("
         for child in self.elem:
-            coerce_to_string = False
-            if coerce_string_mode == True:
-                if child.tag in ["Identifier","Member"]: coerce_to_string = True
-            if coerce_to_string:
-                yield "expr", "ustr("
+            if coerce_string_mode and child.tag == "OpMath":
+                if child.get("type") == "PLUS":
+                    yield "expr",","
+                    continue
+                 
             for dtype, data in parse_ast(child).generate():
                 yield dtype, data
-            if coerce_to_string:
-                yield "expr", ")"
+
+        if coerce_string_mode:
+            yield "expr", ")"
         if isolate: yield "expr", ")"
 
 class Parentheses(ASTPython):
