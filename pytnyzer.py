@@ -135,6 +135,11 @@ class FunctionCall(ASTPython):
                 extends = class_.get("extends")
                 if extends == name:
                     name = "super(%s, self).__init__" % class_.get("name")
+            functions = parent.xpath("//Function[@name=\"%s\"]" % name)
+            for f in functions:
+                #yield "debug", "Function to:" + etree.tostring(f)
+                name = "self.%s" % name
+                break
             
         arguments = []
         for n,arg in enumerate(self.elem.xpath("CallArguments/*")):
@@ -477,7 +482,6 @@ class InstructionCall(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
-                
         yield "line", " ".join(arguments)
 
 class InstructionFlow(ASTPython):
