@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from optparse import OptionParser
-import os, os.path
+import os, os.path, sys
 import flscriptparse
 import imp, traceback
 from lxml import etree
@@ -509,12 +509,18 @@ def execute(options, args):
             pythonize(filename, destname)
     
     else:        
-        for filename in args:
+        nfs = len(args)
+        for nf, filename in enumerate(args):
             bname = os.path.basename(filename)
-            print "File:", bname
+            sys.stdout.write("Parsing File: %-40s . . . .        (%.1f%%)    " % (bname,100.0*(nf+1.0)/nfs))
+            sys.stdout.flush();
             prog = flscriptparse.parse(open(filename).read())                      
+            sys.stdout.write("\r");
             if not prog:
-                print "No se pudo abrir el fichero."
+                print "Error: No se pudo abrir %-40s          \n" % (repr(filename))
+                continue
+            if prog["error_count"] > 0:
+                print "Encontramos %d errores parseando: %-40s          \n" % (prog["error_count"], repr(filename))
                 continue
             if options.toxml == False: 
                 # Si no se quiere guardar resultado, no hace falta calcular mas
@@ -522,12 +528,11 @@ def execute(options, args):
             
             tree_data = flscriptparse.calctree(prog, alias_mode = 0)
             if not tree_data:
-                print "No se pudo parsear."
+                print "No se pudo parsear %-40s          \n" % (repr(filename))
                 continue
-        
             ast = post_parse(tree_data)
             if ast is None:
-                print "No se pudo analizar."
+                print "No se pudo analizar %-40s          \n" % (repr(filename))
                 continue
             if options.storepath:
                 destname = os.path.join(options.storepath,bname+".xml") 

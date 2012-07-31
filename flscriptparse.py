@@ -343,6 +343,7 @@ def p_error(t):
     global ok_count
     global last_error_token
     global last_error_line
+    # if error_count == 0: print
     error_count += 1
     if t is not None:
         if last_error_token is None or t.lexpos != getattr(last_error_token,"lexpos",None):
@@ -613,6 +614,7 @@ def parse(data):
     p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
     if error_count > 0:
         print "ERRORS (%d)" % error_count
+    p["error_count"] = error_count
     if parser.error: 
         return None
     return p
