@@ -232,6 +232,7 @@ def p_parse(token):
     instruction : base_instruction SEMI
                 | SEMI
                 | base_instruction 
+                | funcdeclaration
                 
     callinstruction : funccall
                     | variable
@@ -315,6 +316,7 @@ def p_parse(token):
                     | error
 
     forinstatement  : FOR LPAREN for_initialize IN variable RPAREN statement_block 
+                    | FOR LPAREN variable IN variable RPAREN statement_block 
                     | error
 
     switch  : SWITCH LPAREN condition RPAREN LBRACE case_block_list RBRACE
@@ -614,7 +616,13 @@ def parse(data):
     p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
     if error_count > 0:
         print "ERRORS (%d)" % error_count
-    p["error_count"] = error_count
+    if p is None: return p
+    try:
+        p["error_count"] = error_count
+    except Exception, e:
+        print e
+        return None
+        
     if parser.error: 
         return None
     return p
