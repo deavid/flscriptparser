@@ -70,7 +70,9 @@ def p_parse(token):
                         | typeof_operator
                         
                         
+                        
     parentheses         : LPAREN base_expression RPAREN
+                        | LPAREN variable_1 RPAREN
     
     unary_operator      : LNOT base_expression
                         | MINUS base_expression
@@ -162,8 +164,7 @@ def p_parse(token):
                 | funccall_1
                 | member_call
                 | member_var
-                | LPAREN base_expression RPAREN
-                | LPAREN identifier RPAREN
+                | base_expression
 
     member_var  : varmemcall PERIOD variable_1
     member_call : LPAREN member_var RPAREN PERIOD funccall_1
