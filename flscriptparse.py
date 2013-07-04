@@ -39,7 +39,8 @@ precedence = (
     ('left', 'OR', 'AND', 'XOR', 'LSHIFT', 'RSHIFT'),
 
 )
-
+tokelines =  {}
+last_lexspan = None
 def p_parse(token):
     '''
     exprval : constant
@@ -334,6 +335,12 @@ def p_parse(token):
     token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
     global ok_count
     ok_count += 1
+    if lexspan[0] not in tokelines: 
+        tokelines[lexspan[0]] = token.lexer.lineno
+    global last_lexspan
+    last_lexspan = lexspan
+    
+    
 
 
 error_count = 0
@@ -362,6 +369,12 @@ def p_error(t):
     if t is None:
         if last_error_token != "EOF": 
             print "ERROR: End of the file reached."
+            if last_lexspan:
+                try:
+                    print "HINT: Last lexspan:", last_lexspan
+                    print "HINT: Last line:", tokelines[last_lexspan[0]]
+                except Exception, e:
+                    print "ERROR:", e
         last_error_token = "EOF"
         return t
     t = yacc.token() 
