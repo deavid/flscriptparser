@@ -512,15 +512,15 @@ def execute(options, args):
         nfs = len(args)
         for nf, filename in enumerate(args):
             bname = os.path.basename(filename)
-            sys.stdout.write("Parsing File: %-40s . . . .        (%.1f%%)    " % (bname,100.0*(nf+1.0)/nfs))
+            sys.stdout.write("Parsing File: %-35s . . . .        (%.1f%%)    " % (bname,100.0*(nf+1.0)/nfs))
             sys.stdout.flush();
             prog = flscriptparse.parse(open(filename).read())                      
             sys.stdout.write("\r");
             if not prog:
-                print "Error: No se pudo abrir %-40s          \n" % (repr(filename))
+                print "Error: No se pudo abrir %-35s          \n" % (repr(filename))
                 continue
             if prog["error_count"] > 0:
-                print "Encontramos %d errores parseando: %-40s          \n" % (prog["error_count"], repr(filename))
+                print "Encontramos %d errores parseando: %-35s          \n" % (prog["error_count"], repr(filename))
                 continue
             if options.toxml == False: 
                 # Si no se quiere guardar resultado, no hace falta calcular mas
@@ -528,11 +528,11 @@ def execute(options, args):
             
             tree_data = flscriptparse.calctree(prog, alias_mode = 0)
             if not tree_data:
-                print "No se pudo parsear %-40s          \n" % (repr(filename))
+                print "No se pudo parsear %-35s          \n" % (repr(filename))
                 continue
             ast = post_parse(tree_data)
             if ast is None:
-                print "No se pudo analizar %-40s          \n" % (repr(filename))
+                print "No se pudo analizar %-35s          \n" % (repr(filename))
                 continue
             if options.storepath:
                 destname = os.path.join(options.storepath,bname+".xml") 
