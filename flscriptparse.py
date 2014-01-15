@@ -82,6 +82,7 @@ def p_parse(token):
                         | NEW identifier
                         
     typeof_operator     : TYPEOF variable
+                        | TYPEOF parentheses
                     
     ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
