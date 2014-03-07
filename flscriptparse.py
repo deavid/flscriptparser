@@ -332,6 +332,9 @@ def p_parse(token):
     '''
     lexspan = list(token.lexspan(0))
     data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
+    if len(lexspan) == 2:
+        fromline = token.lineno(0)
+        #print fromline, lexspan, token.slice[0]
     token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
     global ok_count
     ok_count += 1
