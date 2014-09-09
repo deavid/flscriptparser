@@ -21,7 +21,7 @@ reserved = [
     ]
 token_literals = [
     # Literals (identifier, integer constant, float constant, string constant, char const)
-    'ID', 'ICONST', 'FCONST', 'SCONST', 'CCONST', 'RXCONST'
+    'ID', 'ICONST', 'FCONST', 'SCONST', 'CCONST' #, 'RXCONST'
 ]
 tokens = reserved + token_literals + [
 
@@ -57,7 +57,11 @@ tokens = reserved + token_literals + [
 #    'ELLIPSIS',
     'DOCSTRINGOPEN',
  #   'COMMENTOPEN',
-    'COMMENTCLOSE',
+    'COMMENTCLOSE', 
+    'DOLLAR',
+    'SQOUTE',
+    'DQOUTE',
+    'BACKSLASH',
     ]
 
 # Completely ignored characters
@@ -69,6 +73,10 @@ def t_NEWLINE(t):
     t.lexer.lineno += t.value.count("\n")
     
 # Operators
+t_BACKSLASH       = '\\\\'
+t_DOLLAR             = r'\$'
+t_SQOUTE             = '\''
+t_DQOUTE             = '"'
 t_PLUS             = r'\+'
 t_MINUS            = r'-'
 t_TIMES            = r'\*'
@@ -160,7 +168,7 @@ t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
 t_CCONST = r'\'([^\\\n]|(\\.))*?\''
 
 # REGEX constant 
-t_RXCONST = r'/.+/g'
+#t_RXCONST = r'/[^/ ]+/g?'
 
 # Comments
 def t_comment(t):

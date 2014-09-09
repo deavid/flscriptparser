@@ -20,6 +20,8 @@ start = "source"
 reserv=['nonassoc']
 reserv+=list(flex.reserved)
 
+endoffile = None
+
 def cnvrt(val):
     val = str(val)
     val = val.replace('&','&amp;')
@@ -177,6 +179,7 @@ def p_parse(token):
                 | member_call
                 | LPAREN member_call RPAREN
                 | LPAREN funccall_1 RPAREN
+                | LPAREN error RPAREN
 
     funccall_1  : ID LPAREN callargs RPAREN
                 | ID LPAREN RPAREN
@@ -235,6 +238,7 @@ def p_parse(token):
                 | SEMI
                 | base_instruction 
                 | funcdeclaration
+                | error SEMI
                 
     callinstruction : funccall
                     | variable
@@ -265,9 +269,36 @@ def p_parse(token):
                 | FCONST
                 | CCONST
                 | SCONST
-                | RXCONST
+                | regex
                 | list_constant
-                | error
+              
+    regex : DIVIDE regexbody DIVIDE regexflags
+          | DIVIDE regexbody COMMENTCLOSE regexflags
+                  
+    regexbody   : regexchar
+                | regexbody regexchar
+   
+    regexchar :  LPAREN
+              | RPAREN
+              | ID
+              | COMMA
+              | XOR
+              | LBRACKET
+              | RBRACKET
+              | ICONST
+              | PLUS
+              | MINUS
+              | LBRACE
+              | RBRACE
+              | DOLLAR
+              | SQOUTE
+              | DQOUTE
+              | BACKSLASH
+              | SCONST
+              | error
+              
+    regexflags : ID
+               | empty
               
 
     statement_block : statement
@@ -330,12 +361,40 @@ def p_parse(token):
 
     empty : 
     '''
+    global input_data
+    
     lexspan = list(token.lexspan(0))
     data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
     if len(lexspan) == 2:
         fromline = token.lineno(0)
+        global endoffile 
+        endoffile = fromline, lexspan, token.slice[0]
         #print fromline, lexspan, token.slice[0]
     token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
+    numelems = len([ s for s in token.slice[1:] if s.type != 'empty' and s.value is not None ])
+    
+    rspan = lexspan[0]
+    if str(token.slice[0]) == 'empty' or numelems == 0: token[0] = None
+    else:
+        rvalues = []
+        for n,s in enumerate(token.slice[1:]): 
+            if s.type != 'empty' and s.value is not None:
+                val = None
+                if isinstance(s.value,basestring): 
+                    val = token.lexspan(n+1)[0] + len(s.value) - 1
+                else:
+                    val = token.lexspan(n+1)[1]
+                rvalues.append(val)
+        rspan = max(rvalues)
+    lexspan[1] = rspan
+    
+    if str(token.slice[0]) == 'regexbody':
+        token[0] = { "02-size" : lexspan,  "50-contents" :  input_data[lexspan[0]:lexspan[1]+1] } 
+        
+    #if str(token.slice[0]) == 'regex': 
+    #    print "\r\n",str(token.slice[0]) ,":" , input_data[lexspan[0]:lexspan[1]+1] 
+    #    print "      " + "\n      ".join([ "%s(%r): %r" % (s.type, token.lexspan(n+1), s.value) for n,s in enumerate(token.slice[1:]) ])
+
     global ok_count
     ok_count += 1
 
@@ -366,6 +425,9 @@ def p_error(t):
     if t is None:
         if last_error_token != "EOF": 
             print "ERROR: End of the file reached."
+            global endoffile 
+            print "Last data:", endoffile
+            
         last_error_token = "EOF"
         return t
     t = yacc.token() 
