@@ -41,6 +41,7 @@ precedence = (
     ('left', 'OR', 'AND', 'XOR', 'LSHIFT', 'RSHIFT'),
 
 )
+seen_tokens = []
 
 def p_parse(token):
     '''
@@ -59,8 +60,8 @@ def p_parse(token):
                                 
     dictobject_value_elem : exprval COLON expression
                                 
-    base_expression     : inlinestoreinstruction
-                        | exprval
+    base_expression     : exprval
+                        | inlinestoreinstruction
                         | base_expression mathoperator base_expression
                         | base_expression cmp_symbol base_expression
                         | base_expression boolcmp_symbol base_expression
@@ -70,6 +71,7 @@ def p_parse(token):
                         | ternary_operator
                         | dictobject_value
                         | typeof_operator
+                        
                         
                         
                         
@@ -84,7 +86,7 @@ def p_parse(token):
                         | NEW identifier
                         
     typeof_operator     : TYPEOF variable
-                        | TYPEOF parentheses
+                        | TYPEOF base_expression
                     
     ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
@@ -183,6 +185,7 @@ def p_parse(token):
 
     funccall_1  : ID LPAREN callargs RPAREN
                 | ID LPAREN RPAREN
+                | TYPEOF LPAREN callargs RPAREN
 
     mathoperator    : PLUS
                     | MINUS
@@ -246,6 +249,10 @@ def p_parse(token):
     base_instruction : storeinstruction
                 | callinstruction
                 | flowinstruction 
+
+    varorcall : variable
+              | funccall
+              | base_expression            
 
     optextends  : EXTENDS ID
                 | empty
@@ -319,7 +326,8 @@ def p_parse(token):
     boolcmp_symbol  : LOR
                     | LAND
 
-    condition   : expression 
+    condition   : expression
+                | error 
 
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
 
@@ -348,8 +356,8 @@ def p_parse(token):
     forstatement    : FOR LPAREN for_initialize SEMI for_compare SEMI for_increment RPAREN statement_block 
                     | error
 
-    forinstatement  : FOR LPAREN for_initialize IN variable RPAREN statement_block 
-                    | FOR LPAREN variable IN variable RPAREN statement_block 
+    forinstatement  : FOR LPAREN for_initialize IN varorcall RPAREN statement_block 
+                    | FOR LPAREN variable IN varorcall RPAREN statement_block 
                     | error
 
     switch  : SWITCH LPAREN condition RPAREN LBRACE case_block_list RBRACE
@@ -394,11 +402,13 @@ def p_parse(token):
     #if str(token.slice[0]) == 'regex': 
     #    print "\r\n",str(token.slice[0]) ,":" , input_data[lexspan[0]:lexspan[1]+1] 
     #    print "      " + "\n      ".join([ "%s(%r): %r" % (s.type, token.lexspan(n+1), s.value) for n,s in enumerate(token.slice[1:]) ])
-
+    global seen_tokens, last_ok_token
+    last_ok_token = token
+    seen_tokens.append((str(token.slice[0]), token.lineno(0),input_data[lexspan[0]:lexspan[1]+1] ))
     global ok_count
     ok_count += 1
 
-
+last_ok_token = None
 error_count = 0
 last_error_token = None
 last_error_line = -1
@@ -408,14 +418,22 @@ def p_error(t):
     global error_count
     global ok_count
     global last_error_token
-    global last_error_line
+    global last_error_line, seen_tokens , last_ok_token
+    debug = False # Poner a True para toneladas de debug.
     # if error_count == 0: print
-    error_count += 1
     if t is not None:
         if last_error_token is None or t.lexpos != getattr(last_error_token,"lexpos",None):
-            if abs(last_error_line -  t.lineno) > 3 and ok_count > 2:
+            if abs(last_error_line -  t.lineno) > 4 and ok_count > 1 and error_count < 4:
+                error_count += 1
                 try: print_context(t)
                 except: pass
+                if debug == True:
+                    for tokname, tokln, tokdata in seen_tokens[-32:]:
+                        if tokln ==  t.lineno:
+                            print tokname, tokdata
+                    print repr(last_ok_token[0])
+                last_error_line = t.lineno
+            elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno
             yacc.errok()
             ok_count = 0
@@ -676,6 +694,8 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
 def parse(data):
     global input_data
     global error_count
+    global seen_tokens
+    seen_tokens[:] = []
     parser.error = 0
     input_data = data
     flex.lexer.lineno = 1
