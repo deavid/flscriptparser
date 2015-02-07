@@ -793,7 +793,9 @@ def write_python_file(fobj, ast):
             if lines_since_last_indent > 4:
                 fobj.write((len(indent)*indent_text) + "\n") 
             last_line_for_indent[len(indent)] = numline
-        if dtype == "debug": line = "# DEBUG:: " + data
+        if dtype == "debug": 
+		line = "# DEBUG:: " + data
+		print numline, line
         if dtype == "expr": line = "# EXPR??:: " + data
         if dtype == "line+1": line = "# LINE+1??:: " + data
         if dtype == "begin": 

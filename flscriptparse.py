@@ -146,6 +146,7 @@ def p_parse(token):
                     |  CONST vardecl_list SEMI
     vardeclaration  :  VAR vardecl_list 
                     |  CONST vardecl_list 
+                    |  STATIC VAR vardecl_list 
 
     vardecl  :  ID optvartype EQUALS expression 
     vardecl  :  ID optvartype
@@ -157,6 +158,7 @@ def p_parse(token):
             |
 
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
+    funcdeclaration : STATIC FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     funcdeclaration_anon : FUNCTION LPAREN arglist RPAREN LBRACE basicsource RBRACE
 
     callarg     : expression

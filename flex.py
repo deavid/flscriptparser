@@ -11,7 +11,7 @@ import ply.lex as lex
 
 # Reserved words
 reserved = [
-    'BREAK', 'CASE', 'CONST', 'CONTINUE', 'DEFAULT', 'DO',
+    'BREAK', 'CASE', 'CONST', 'STATIC', 'CONTINUE', 'DEFAULT', 'DO',
     'ELSE', 'FOR', 'IF', 'IN',
     'RETURN', 
     #'STRUCT', 
