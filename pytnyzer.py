@@ -539,7 +539,7 @@ class Member(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
-        if arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
+        if len(arguments) >= 3 and arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
             # From: self.iface.__function()
             # to: super(className, self.iface).function()
             funs = self.elem.xpath("ancestor::Function")
@@ -787,6 +787,7 @@ def write_python_file(fobj, ast):
     indent_text = "    "
     last_line_for_indent = {}
     numline = 0
+    last_dtype = None
     for dtype, data in file_template(ast):
         line = None
         if dtype == "line": 
@@ -806,7 +807,11 @@ def write_python_file(fobj, ast):
             #line = "# BEGIN:: " + data
             indent.append(data)
             last_line_for_indent[len(indent)] = numline
-        if dtype == "end": 
+        if dtype == "end":
+            if last_dtype == "begin":
+                fobj.write((len(indent)*indent_text) + "pass\n") 
+                last_line_for_indent[len(indent)] = numline
+                  
             if data not in ["block-if"]:
                 #line = "# END:: " + data
                 pass
@@ -822,6 +827,7 @@ def write_python_file(fobj, ast):
             if data.split("-")[1] in ["class","def","else","except"]:
                 fobj.write((len(indent)*indent_text) + "\n") 
                 last_line_for_indent[len(indent)] = numline
+        last_dtype = dtype
 
 def pythonize(filename, destfilename):
     bname = os.path.basename(filename)
