@@ -334,12 +334,16 @@ class Switch(ASTPython):
             yield "line", "if %s == %s: %s,%s = %s,%s" % (name," ".join(value_expr),name_pr,name_pr2, "True", "True")
             yield "line", "if %s:" % (name_pr)
             yield "begin", "block-if"
+            count = 0
             for source in scase.xpath("Source"):
                 for obj in parse_ast(source).generate(break_mode = True): 
                     if obj[0] == "break":
                         yield "line", "%s = %s # BREAK" % (name_pr,"False")
+                        count += 1
                     else:
                         yield obj
+                        count += 1
+            if count < 1: yield "line", "pass"
             yield "end", "block-if"
             
         for scasedefault in self.elem.xpath("CaseDefault"):
