@@ -34,7 +34,7 @@ def cnvrt(val):
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
     ('left','LOR', 'LAND'),
-    ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE'),
+    ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE', 'EQQ', 'NEQ'),
     ('right', 'LNOT'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE', 'MOD'),
@@ -323,6 +323,8 @@ def p_parse(token):
                 | GE
                 | EQ
                 | NE
+                | EQQ
+                | NEQ
                 | IN
 
     boolcmp_symbol  : LOR
