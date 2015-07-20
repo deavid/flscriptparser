@@ -44,7 +44,7 @@ class ASTPython(with_metaclass(ASTPythonFactory, object)):
     def polish(self): return self
 
     def generate(self, **kwargs):
-        yield "debug", etree.tostring(self.elem)
+        yield "debug", "* not-known-seq * " + etree.tounicode(self.elem)
 
 
 class Source(ASTPython):
@@ -286,7 +286,7 @@ class For(ASTPython):
                 main_expr.append("True")
             else:
                 main_expr.append(" ".join(expr))
-        yield "debug", "FOR:"
+        yield "debug", "WHILE-FROM-QS-FOR: " + repr(main_expr)
         yield "line", "while %s:" % (" ".join(main_expr))
         for source in self.elem.xpath("Source"):
             yield "begin", "block-for"
@@ -295,6 +295,28 @@ class For(ASTPython):
                 for line in incr_lines:
                     yield "line", line
             yield "end", "block-for"
+
+class ForIn(ASTPython):
+    def generate(self, **kwargs):
+        list_elem, main_list = "None", "None"
+        myelems = []
+        for e in self.elem:
+            if e.tag == "Source": break
+            if e.tag == "ForInitialize": e = list(e)[0]
+            expr = []
+            for dtype, data in parse_ast(e).generate(isolate = False):
+                if dtype == "expr":
+                    expr.append(data)
+                else:
+                    yield dtype, data
+            myelems.append(" ".join(expr))
+        list_elem, main_list = myelems
+        yield "debug", "FOR-IN: " + repr(myelems)
+        yield "line", "for %s in %s:" % (list_elem, main_list)
+        for source in self.elem.xpath("Source"):
+            yield "begin", "block-for-in"
+            for obj in parse_ast(source).generate(include_pass=False): yield obj
+            yield "end", "block-for-in"
 
 class Switch(ASTPython):
     def generate(self, **kwargs):
@@ -542,6 +564,8 @@ class Member(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
+
+        # Lectura del self.iface.__init
         if len(arguments) >= 3 and arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
             # From: self.iface.__function()
             # to: super(className, self.iface).function()
@@ -552,6 +576,18 @@ class Member(ASTPython):
                 classname = name_parts[0]
                 arguments[2] = arguments[2][2:]
                 arguments[0:2] = ["super(%s, %s)" % (classname,".".join(arguments[0:2]))]
+
+        # Lectura del self.iface.__init() al nuevo estilo yeboyebo
+        if len(arguments) >= 2 and arguments[0:1] == ["_i"] and arguments[1].startswith("__"):
+            # From: self.iface.__function()
+            # to: super(className, self.iface).function()
+            funs = self.elem.xpath("ancestor::Function")
+            if funs:
+                fun = funs[-1]
+                name_parts = fun.get("name").split("_")
+                classname = name_parts[0]
+                arguments[1] = arguments[1][2:]
+                arguments[0:1] = ["super(%s, %s)" % (classname,".".join(arguments[0:1]))]
 
         yield "expr", ".".join(arguments)
 
