@@ -210,7 +210,7 @@ class TryCatch(ASTPython):
                     yield dtype, data
             identifier = " ".join(expr)
         if identifier:
-            yield "line", "except Exception, %s:" % (identifier)
+            yield "line", "except Exception as %s:" % (identifier)
         else:
             yield "line", "except Exception:"
         yield "begin", "block-except"
