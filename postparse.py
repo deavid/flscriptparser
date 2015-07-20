@@ -478,7 +478,7 @@ def pythonify(filelist):
     options.full = True
     if isinstance(filelist, str): filelist = [filelist]
     execute(options,filelist)
-
+    print(filelist)
 
 
 
