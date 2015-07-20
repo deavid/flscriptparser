@@ -609,7 +609,7 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
     nuevalinea = False
     name = ""
     lines = []
-
+    l = 0
 
 
     for ctype, value in tree['content']:
@@ -617,7 +617,8 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
             nuevalinea = False
 
         if nuevalinea:
-            for i in range(int(math.ceil(old_div(l,2.0)))): lines.append(sep * depth)
+            for i in range(int(math.ceil(l/2.0))):
+                lines.append(sep * depth)
             nuevalinea = False
 
         if type(value) is dict and ctype == otype:
@@ -630,7 +631,8 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
             l = 0
             if ctype in marginblocks: l = marginblocks[ctype]
 
-            for i in range(int(math.floor(old_div(l,2.0)))): lines.append(sep * depth)
+            for i in range(int(math.floor(l/2.0))):
+                lines.append(sep * depth)
             tname,tlines,trange = printtree(value, depth+1, ctype)
             # lines.append(sep * depth + "<!-- %d -->" % (len("".join(tlines))))
 
