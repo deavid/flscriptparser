@@ -564,7 +564,6 @@ class Member(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
-
         # Lectura del self.iface.__init
         if len(arguments) >= 3 and arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
             # From: self.iface.__function()
@@ -588,6 +587,15 @@ class Member(ASTPython):
                 classname = name_parts[0]
                 arguments[1] = arguments[1][2:]
                 arguments[0:1] = ["super(%s, %s)" % (classname,".".join(arguments[0:1]))]
+
+        if "length" in arguments:
+            idx = arguments.index("length")
+            part1 = arguments[:idx]
+            try:
+                part2 = arguments[idx+1]
+            except IndexError:
+                part2 = [] # Para aquellos que solo sea un len(x) sin más miembros a la derecha
+            arguments = ["len(%s)" % (".".join(part1))] + part2
 
         yield "expr", ".".join(arguments)
 
