@@ -246,7 +246,7 @@ class While(ASTPython):
 
 class For(ASTPython):
     def generate(self, **kwargs):
-        main_expr = []
+        init_expr = []
         for n,arg in enumerate(self.elem.xpath("ForInitialize/*")):
             expr = []
             for dtype, data in parse_ast(arg).generate(isolate = False):
@@ -255,9 +255,9 @@ class For(ASTPython):
                 else:
                     yield dtype, data
             if len(expr) > 0:
-                main_expr.append(" ".join(expr))
-        if main_expr:
-            yield "line", " ".join(main_expr)
+                init_expr.append(" ".join(expr))
+        if init_expr:
+            yield "line", " ".join(init_expr)
 
         incr_expr = []
         incr_lines = []
@@ -286,7 +286,7 @@ class For(ASTPython):
                 main_expr.append("True")
             else:
                 main_expr.append(" ".join(expr))
-        yield "debug", "WHILE-FROM-QS-FOR: " + repr(main_expr)
+        yield "debug", "WHILE-FROM-QS-FOR: (%r;%r;%r)" % (init_expr,main_expr,incr_lines)
         yield "line", "while %s:" % (" ".join(main_expr))
         for source in self.elem.xpath("Source"):
             yield "begin", "block-for"
