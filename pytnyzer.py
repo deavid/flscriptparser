@@ -286,7 +286,7 @@ class For(ASTPython):
                 main_expr.append("True")
             else:
                 main_expr.append(" ".join(expr))
-        yield "debug", "WHILE-FROM-QS-FOR: (%r;%r;%r)" % (init_expr,main_expr,incr_lines)
+        #yield "debug", "WHILE-FROM-QS-FOR: (%r;%r;%r)" % (init_expr,main_expr,incr_lines)
         yield "line", "while %s:" % (" ".join(main_expr))
         for source in self.elem.xpath("Source"):
             yield "begin", "block-for"
@@ -389,7 +389,7 @@ class With(ASTPython):
     def generate(self, **kwargs):
         key = "%02x" % random.randint(0,255)
         name = "w%s_obj" % key
-        yield "debug", "WITH: %s" % key
+        #yield "debug", "WITH: %s" % key
         variable, source = [ obj for obj in self.elem ]
         var_expr = []
         for dtype, data in parse_ast(variable).generate(isolate = False):
@@ -512,6 +512,26 @@ class InstructionCall(ASTPython):
             else:
                 arguments.append(" ".join(expr))
         yield "line", " ".join(arguments)
+
+class Instruction(ASTPython):
+    def generate(self, **kwargs):
+        arguments = []
+        for n,arg in enumerate(self.elem):
+            expr = []
+            for dtype, data in parse_ast(arg).generate():
+                if dtype == "expr":
+                    expr.append(data)
+                else:
+                    yield dtype, data
+            if len(expr) == 0:
+                arguments.append("unknownarg")
+                yield "debug", "Argument %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                arguments.append(" ".join(expr))
+        if arguments:
+            yield "debug", "Instruction: Maybe parse-error. This class is only for non-understood instructions or empty ones"
+            yield "line", " ".join(arguments)
 
 class InstructionFlow(ASTPython):
     def generate(self, break_mode = False, **kwargs):
@@ -666,6 +686,60 @@ class Parentheses(ASTPython):
             for dtype, data in parse_ast(child).generate(isolate = False):
                 yield dtype, data
         yield "expr", ")"
+
+class Delete(ASTPython):
+    def generate(self, **kwargs):
+        yield "expr", "del"
+        for child in self.elem:
+            for dtype, data in parse_ast(child).generate(isolate = False):
+                yield dtype, data
+
+
+class OpTernary(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        """
+            Ejemplo op. ternario
+                <OpTernary>
+                    <Parentheses>
+                        <OpUnary type="LNOT"><Identifier name="codIso"/></OpUnary>
+                        <Compare type="LOR"/><Identifier name="codIso"/><Compare type="EQ"/>
+                        <Constant delim="&quot;" type="String" value=""/>
+                    </Parentheses>
+                    <Constant delim="&quot;" type="String" value="ES"/>
+                    <Identifier name="codIso"/>
+                </OpTernary>
+        """
+        if_cond = self.elem[0]
+        then_val =  self.elem[1]
+        else_val =  self.elem[2]
+        yield "expr", "(" # Por seguridad, unos paréntesis
+        for dtype, data in parse_ast(then_val).generate(): yield dtype, data
+        yield "expr", "if"
+        for dtype, data in parse_ast(if_cond).generate(): yield dtype, data
+        yield "expr", "else"
+        for dtype, data in parse_ast(else_val).generate(): yield dtype, data
+        yield "expr", ")" # Por seguridad, unos paréntesis
+
+
+class DictObject(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        yield "expr", "{"
+        for child in self.elem:
+            for dtype, data in parse_ast(child).generate():
+                yield dtype, data
+            yield "expr", "," # Como en Python la coma final la ignora, pues la ponemos.
+        yield "expr", "}"
+
+class DictElem(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        # Clave:
+        for dtype, data in parse_ast(self.elem[0]).generate():
+            yield dtype, data
+        yield "expr", ":"
+        # Valor:
+        for dtype, data in parse_ast(self.elem[1]).generate():
+            yield dtype, data
+
 
 class OpUnary(ASTPython):
     def generate(self, isolate = False, **kwargs):
