@@ -588,15 +588,23 @@ class Member(ASTPython):
                 arguments[1] = arguments[1][2:]
                 arguments[0:1] = ["super(%s, %s)" % (classname,".".join(arguments[0:1]))]
 
-        if "length" in arguments:
-            idx = arguments.index("length")
-            part1 = arguments[:idx]
-            try:
-                part2 = arguments[idx+1]
-            except IndexError:
-                part2 = [] # Para aquellos que solo sea un len(x) sin más miembros a la derecha
-            arguments = ["len(%s)" % (".".join(part1))] + part2
+        replace_members = [
+            "length",
+            "text",
+            "join",
+            "date",
+        ]
 
+        for member in replace_members:
+            for idx,arg in enumerate(arguments):
+                if member == arg or arg.startswith(member+"("):
+
+                    part1 = arguments[:idx]
+                    try:
+                        part2 = arguments[idx+1]
+                    except IndexError:
+                        part2 = [] # Para los que son últimos y no tienen parte adicional
+                    arguments = ["qsa(%s).%s" % (".".join(part1), arg)] + part2
         yield "expr", ".".join(arguments)
 
 class ArrayMember(ASTPython):
