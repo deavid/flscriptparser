@@ -4,7 +4,6 @@ from __future__ import division
 from builtins import input
 from builtins import str
 from builtins import range
-from past.utils import old_div
 # -----------------------------------------------------------------------------
 # flscriptparse.py
 #

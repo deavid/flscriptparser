@@ -8,7 +8,11 @@ import os, os.path, sys
 from pineboolib.flparser import flscriptparse
 import imp, traceback
 from lxml import etree
-from future.utils import with_metaclass
+try:
+    from future.utils import with_metaclass
+except ImportError:
+    pass
+    
 USEFUL_TOKENS="ID,ICONST,FCONST,SCONST,CCONST,RXCONST".split(",")
 
 KNOWN_PARSERS = {}
