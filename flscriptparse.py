@@ -439,7 +439,7 @@ def p_error(t):
                 last_error_line = t.lineno
             elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno
-            yacc.errok()
+            parser.errok()
             ok_count = 0
             return
 
@@ -452,8 +452,8 @@ def p_error(t):
             
         last_error_token = "EOF"
         return t
-    t = yacc.token() 
-    yacc.restart()
+    t = parser.token() 
+    parser.restart()
     last_error_token = t
     return t
         
