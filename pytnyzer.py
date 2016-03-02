@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # ------ Pythonyzer ... reads XML AST created by postparse.py and creates an equivalent Python file.
 from __future__ import print_function
 from __future__ import absolute_import
@@ -882,7 +883,7 @@ def parse_ast(elem):
 
 
 def file_template(ast):
-    yield "line", "# encoding: UTF-8"
+    yield "line", "# -*- coding: utf-8 -*-"
     yield "line", "from pineboolib import qsatype"
     yield "line", "from pineboolib.qsaglobals import *"
     yield "line", "import traceback"

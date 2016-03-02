@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
+
 from builtins import object
-# encoding: UTF-8
 import os
 
 class Object(object):
