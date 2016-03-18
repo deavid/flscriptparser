@@ -4,7 +4,7 @@
 # Simple parser for FacturaLUX SCripting Language (QSA).  
 # -----------------------------------------------------------------------------
 from optparse import OptionParser
-
+import pprint
 import sys, math
 import hashlib
 import flex
@@ -92,6 +92,8 @@ def p_parse(token):
 
     expression  : base_expression
                 | funcdeclaration_anon
+                | funcdeclaration_anon_exec
+                | LPAREN expression RPAREN
                 | error
 
     case_cblock_list  :  case_block  
@@ -160,6 +162,9 @@ def p_parse(token):
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     funcdeclaration : STATIC FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     funcdeclaration_anon : FUNCTION LPAREN arglist RPAREN LBRACE basicsource RBRACE
+                         | FUNCTION LPAREN RPAREN LBRACE basicsource RBRACE
+    funcdeclaration_anon_exec : funcdeclaration_anon LPAREN RPAREN
+                              | funcdeclaration_anon LPAREN arglist RPAREN
 
     callarg     : expression
 
@@ -384,7 +389,6 @@ def p_parse(token):
         #print fromline, lexspan, token.slice[0]
     token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
     numelems = len([ s for s in token.slice[1:] if s.type != 'empty' and s.value is not None ])
-    
     rspan = lexspan[0]
     if str(token.slice[0]) == 'empty' or numelems == 0: token[0] = None
     else:
@@ -432,10 +436,12 @@ def p_error(t):
                 try: print_context(t)
                 except: pass
                 if debug == True:
-                    for tokname, tokln, tokdata in seen_tokens[-32:]:
-                        if tokln ==  t.lineno:
-                            print tokname, tokdata
-                    print repr(last_ok_token[0])
+                    error_count += 20 # no imprimir mas de un error en debug.
+                    print
+                    for s in last_ok_token.slice[:]:
+                        print ">>>" ,  s.lineno, repr(s), pprint.pformat(s.value,depth=3)
+                    #print "LAST TOKEN:"
+                    #print pprint.pformat(last_ok_token[0],depth=10)
                 last_error_line = t.lineno
             elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno
