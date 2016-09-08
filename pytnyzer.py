@@ -622,7 +622,7 @@ class Member(ASTPython):
 
                     part1 = arguments[:idx]
                     try:
-                        part2 = arguments[idx+1]
+                        part2 = arguments[idx+1:]
                     except IndexError:
                         part2 = [] # Para los que son últimos y no tienen parte adicional
                     arguments = ["qsa(%s).%s" % (".".join(part1), arg)] + part2
