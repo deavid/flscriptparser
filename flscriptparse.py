@@ -422,12 +422,12 @@ def p_parse(token):
     seen_tokens.append((str(token.slice[0]), token.lineno(0),input_data[lexspan[0]:lexspan[1]+1] ))
     global ok_count
     ok_count += 1
-    if lexspan[0] not in tokelines: 
+    if lexspan[0] not in tokelines:
         tokelines[lexspan[0]] = token.lexer.lineno
     global last_lexspan
     last_lexspan = lexspan
-    
-    
+
+
 
 last_ok_token = None
 error_count = 0
@@ -447,7 +447,7 @@ def p_error(t):
             if abs(last_error_line -  t.lineno) > 4 and ok_count > 1 and error_count < 4:
                 error_count += 1
                 try: print_context(t)
-                except: pass
+                except Exception: pass
                 if debug == True:
                     for tokname, tokln, tokdata in seen_tokens[-32:]:
                         if tokln ==  t.lineno:
@@ -469,13 +469,13 @@ def p_error(t):
 
             if last_lexspan:
                 try:
-                    print "HINT: Last lexspan:", last_lexspan
-                    print "HINT: Last line:", tokelines[last_lexspan[0]]
-                except Exception, e:
-                    print "ERROR:", e
+                    print("HINT: Last lexspan:", last_lexspan)
+                    print("HINT: Last line:", tokelines[last_lexspan[0]])
+                except Exception as e:
+                    print("ERROR:", e)
         last_error_token = "EOF"
         return t
-    t = parser.token() 
+    t = parser.token()
     parser.restart()
     last_error_token = t
     return t
