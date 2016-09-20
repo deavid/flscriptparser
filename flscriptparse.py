@@ -42,7 +42,8 @@ precedence = (
 
 )
 seen_tokens = []
-
+tokelines =  {}
+last_lexspan = None
 def p_parse(token):
     '''
     exprval : constant
@@ -411,6 +412,12 @@ def p_parse(token):
     seen_tokens.append((str(token.slice[0]), token.lineno(0),input_data[lexspan[0]:lexspan[1]+1] ))
     global ok_count
     ok_count += 1
+    if lexspan[0] not in tokelines: 
+        tokelines[lexspan[0]] = token.lexer.lineno
+    global last_lexspan
+    last_lexspan = lexspan
+    
+    
 
 last_ok_token = None
 error_count = 0
@@ -450,6 +457,12 @@ def p_error(t):
             global endoffile 
             print "Last data:", endoffile
             
+            if last_lexspan:
+                try:
+                    print "HINT: Last lexspan:", last_lexspan
+                    print "HINT: Last line:", tokelines[last_lexspan[0]]
+                except Exception, e:
+                    print "ERROR:", e
         last_error_token = "EOF"
         return t
     t = parser.token() 
