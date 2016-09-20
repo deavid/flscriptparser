@@ -33,7 +33,7 @@ tokens = reserved + token_literals + [
     #'NOT',
     'XOR', 'LSHIFT', 'RSHIFT',
     'LOR', 'LAND', 'LNOT',
-    'LT', 'LE', 'GT', 'GE', 'EQ', 'NE',
+    'LT', 'LE', 'GT', 'GE', 'EQ', 'NE', 'EQQ', 'NEQ',
 
     # Assignment (=, *=, /=, %=, +=, -=, <<=, >>=, &=, ^=, |=)
     'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL',
@@ -98,6 +98,8 @@ t_LE               = r'<='
 t_GE               = r'>='
 t_EQ               = r'=='
 t_NE               = r'!='
+t_EQQ               = r'==='
+t_NEQ               = r'!=='
 t_CONDITIONAL1      = r'\?'
 
 # Assignment operators

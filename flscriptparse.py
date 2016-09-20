@@ -44,7 +44,7 @@ def cnvrt(val):
 precedence = (
     ('nonassoc', 'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL'),
     ('left','LOR', 'LAND'),
-    ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE'),
+    ('left', 'LT', 'LE', 'GT', 'GE', 'EQ', 'NE', 'EQQ', 'NEQ'),
     ('right', 'LNOT'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE', 'MOD'),
@@ -52,7 +52,8 @@ precedence = (
 
 )
 seen_tokens = []
-
+tokelines =  {}
+last_lexspan = None
 def p_parse(token):
     '''
     exprval : constant
@@ -333,6 +334,8 @@ def p_parse(token):
                 | GE
                 | EQ
                 | NE
+                | EQQ
+                | NEQ
                 | IN
 
     boolcmp_symbol  : LOR
@@ -419,6 +422,12 @@ def p_parse(token):
     seen_tokens.append((str(token.slice[0]), token.lineno(0),input_data[lexspan[0]:lexspan[1]+1] ))
     global ok_count
     ok_count += 1
+    if lexspan[0] not in tokelines: 
+        tokelines[lexspan[0]] = token.lexer.lineno
+    global last_lexspan
+    last_lexspan = lexspan
+    
+    
 
 last_ok_token = None
 error_count = 0
@@ -447,7 +456,7 @@ def p_error(t):
                 last_error_line = t.lineno
             elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno
-            yacc.errok()
+            parser.errok()
             ok_count = 0
             return
 
@@ -458,10 +467,16 @@ def p_error(t):
             global endoffile
             print("Last data:", endoffile)
 
+            if last_lexspan:
+                try:
+                    print "HINT: Last lexspan:", last_lexspan
+                    print "HINT: Last line:", tokelines[last_lexspan[0]]
+                except Exception, e:
+                    print "ERROR:", e
         last_error_token = "EOF"
         return t
-    t = yacc.token()
-    yacc.restart()
+    t = parser.token() 
+    parser.restart()
     last_error_token = t
     return t
 
