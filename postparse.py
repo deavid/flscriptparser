@@ -5,10 +5,15 @@ from builtins import str
 from builtins import object
 from optparse import OptionParser
 import os, os.path, sys
-from pineboolib.flparser import flscriptparse
 import imp, traceback
 from lxml import etree
 from future.utils import with_metaclass
+
+try:
+    from pineboolib.flparser import flscriptparse
+except ImportError:
+    import flscriptparse
+
 USEFUL_TOKENS="ID,ICONST,FCONST,SCONST,CCONST,RXCONST".split(",")
 
 KNOWN_PARSERS = {}

@@ -14,11 +14,15 @@ from optparse import OptionParser
 
 import sys, math
 import hashlib
-from pineboolib.flparser import flex
 import ply.yacc as yacc
 import ply.lex as lex
 
-from pineboolib.flparser.flclasses import *
+try:
+    from pineboolib.flparser import flex
+    from pineboolib.flparser.flclasses import *
+except ImportError:
+    import flex
+    from flclasses import *
 
 # Get the token map
 tokens = flex.tokens
