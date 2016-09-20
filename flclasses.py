@@ -1,6 +1,9 @@
+from __future__ import print_function
+from builtins import str
+from builtins import object
 debug = 0
 
-class cBase:
+class cBase(object):
     def __init__(self):
         self.type = ("Unknown","Unknown")
         self.codedepth = 0
@@ -43,7 +46,7 @@ class cBaseItemList(cBase):
             
             
         if not isinstance(itemList,cBaseList):
-            raise NameError, "itemList no es un cBaseList: %s" % repr(itemList)
+            raise NameError("itemList no es un cBaseList: %s" % repr(itemList))
         self.itemList = itemList
         self.prefix = prefix
         self.suffix = suffix
@@ -93,12 +96,12 @@ class cBaseList(cBase):
 
     def includeItem(self,child):
         if not isinstance(child,cBase):
-            raise NameError, "Child is not an instance of Base Class!"
+            raise NameError("Child is not an instance of Base Class!")
         
         try:
             ctype, csubtype = child.type
         except:
-            raise NameError, "Base Class doesn't have `type` atribute or is incorrect."
+            raise NameError("Base Class doesn't have `type` atribute or is incorrect.")
         if not hasattr(self.byType,ctype):
             self.byType[ctype]=[]
 
@@ -112,18 +115,18 @@ class cBaseList(cBase):
             try:
                 cname = child.name
             except:
-                raise NameError, "Declaration Class doesn't have `name` atribute."
+                raise NameError("Declaration Class doesn't have `name` atribute.")
             
             if cname in self.byDefName:
-                print "#WARNING# Variable %s found, but previously defined in this block"  % cname
+                print("#WARNING# Variable %s found, but previously defined in this block"  % cname)
                 # self.byDefName[cname]=None
             else:
                 self.byDefName[cname]=child
         try:
             child.addCodeDepth()
         except:
-            print repr(child)
-            raise NameError, "Base Class doesn't have `addCodeDepth` function."
+            print(repr(child))
+            raise NameError("Base Class doesn't have `addCodeDepth` function.")
 
         if isinstance(child,cBaseItemList):
             sslice = child.itemList.slice[:]
@@ -269,7 +272,7 @@ class cFuncDecl(cBaseDecl):
             
             
         if not isinstance(source,cBaseList):
-            raise NameError, "source no es un cBaseList: %s" % repr(itemList)
+            raise NameError("source no es un cBaseList: %s" % repr(itemList))
 
         self.source = source
         
@@ -279,10 +282,10 @@ class cFuncDecl(cBaseDecl):
             self.source.addCodeDepth()
         except:
             import traceback,sys
-            print "Exception in user code:"
-            print '-'*60
+            print("Exception in user code:")
+            print('-'*60)
             traceback.print_exc(file=sys.stdout)
-            print '-'*60
+            print('-'*60)
 
             
         
@@ -308,7 +311,7 @@ class cClassDecl(cBaseDecl):
             
             
         if not isinstance(source,cBaseList):
-            raise NameError, "source no es un cBaseList: %s" % repr(itemList)
+            raise NameError("source no es un cBaseList: %s" % repr(itemList))
         self.source = source
         
     def addCodeDepth(self):
@@ -317,10 +320,10 @@ class cClassDecl(cBaseDecl):
             self.source.addCodeDepth()
         except:
             import traceback,sys
-            print "Exception in user code:"
-            print '-'*60
+            print("Exception in user code:")
+            print('-'*60)
             traceback.print_exc(file=sys.stdout)
-            print '-'*60
+            print('-'*60)
 
     def __str__(self):
         if self.extends:

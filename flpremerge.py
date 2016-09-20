@@ -1,10 +1,16 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import zip
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import os, os.path, sys
 import math
 from optparse import OptionParser
 import difflib 
 import re
 
-class processedFile:
+class processedFile(object):
     def __init__(self, filename, debug = False):
         self.debug = debug
         self.table = {}    # Carga literal de la lista de hashes, pk: (startbyte, endbyte) = csvrow 
@@ -108,13 +114,13 @@ class processedFile:
                 bblocks = []
                 blockdesc = []
                 if len(sB.splitlines(1)) != endline-startline+1:
-                    print startline, endline, repr(sB)
-                    print linePosChar[endline-1]-bhasta, linePosChar[endline]-bhasta, linePosChar[endline+1]-bhasta
+                    print(startline, endline, repr(sB))
+                    print(linePosChar[endline-1]-bhasta, linePosChar[endline]-bhasta, linePosChar[endline+1]-bhasta)
                     
-                    print "Block lines doesnt match:", len(sB.splitlines(1)), endline-startline, startline, endline
-                    print linePosChar[startline-2:startline+3],bdesde
-                    print linePosChar[endline-2:endline+3],bhasta
-                    print repr(sB.splitlines(1))
+                    print("Block lines doesnt match:", len(sB.splitlines(1)), endline-startline, startline, endline)
+                    print(linePosChar[startline-2:startline+3],bdesde)
+                    print(linePosChar[endline-2:endline+3],bhasta)
+                    print(repr(sB.splitlines(1)))
                 for line in sB.splitlines(1):
                     nline += 1
                     if line[-1]!='\n': break
@@ -186,7 +192,7 @@ class processedFile:
             #linenum += 1
             endline = linenum 
             if linePosChar[startline] - desde != 0 or linePosChar[endline] - hasta < 1 or linePosChar[endline] - hasta > 2:
-                print linePosChar[startline] - desde,  linePosChar[endline-1] - hasta, linePosChar[endline] - hasta, bl_name
+                print(linePosChar[startline] - desde,  linePosChar[endline-1] - hasta, linePosChar[endline] - hasta, bl_name)
             name = bl_name
             #print (startline, endline), name, (linePosChar[startline], linePosChar[endline]), pk, (hasta-desde)+1
             self.computedBlocks.append((startline, endline,name))
@@ -231,12 +237,12 @@ def main():
                     
     (options, args) = parser.parse_args()
     if options.optdebug:
-        print options, args
+        print(options, args)
 
-    filenames = filter(lambda x: os.path.isfile(x) , args)
+    filenames = [x for x in args if os.path.isfile(x)]
     not_a_file = set(args) - set(filenames)
     if len(not_a_file):
-        print "WARNING: Not a file:", ", ".join(not_a_file)
+        print("WARNING: Not a file:", ", ".join(not_a_file))
 
     if len(filenames):
         pfiles = []
@@ -255,7 +261,7 @@ def tree_parents(pk):
         pk = pk[:-1]
     return parents
 
-class FindEquivalences:
+class FindEquivalences(object):
     def __init__(self,pfA, pfB, autoCompute = True):
         self.equivalences = {}
         self.parent_equivalences = {}
@@ -264,22 +270,22 @@ class FindEquivalences:
         if autoCompute: self.compute()
         
     def compute(self):
-        print "Finding equivalences between A (%s) -> B (%s):" % (
+        print("Finding equivalences between A (%s) -> B (%s):" % (
                 self.pfA.filename, 
                 self.pfB.filename
-                )
-        print "Modified names:"
+                ))
+        print("Modified names:")
         commonNames = sorted(list(self.pfA.sNames & self.pfB.sNames))
         for name in commonNames:     
             if len(self.pfA.names[name]) > 1 or len(self.pfB.names[name]) > 1:
-                print "-", name,"(%d,%d)" % (len(self.pfA.names[name]),len(self.pfB.names[name]))
+                print("-", name,"(%d,%d)" % (len(self.pfA.names[name]),len(self.pfB.names[name])))
             else:
                 keyA = self.pfA.idxtree[self.pfA.names[name][0]]
                 rowA = self.pfA.table[keyA]
                 keyB = self.pfB.idxtree[self.pfB.names[name][0]]
                 rowB = self.pfB.table[keyB]
                 if rowA['hash'] != rowB['hash']:
-                    print "###", name,"###"
+                    print("###", name,"###")
                     fileA = self.pfA.filename.replace(".hash","")
                     fileB = self.pfB.filename.replace(".hash","")
                     if os.path.isfile(fileA) and os.path.isfile(fileB):
@@ -316,44 +322,44 @@ class FindEquivalences:
                                     if len(omit)>= Context:
                                         for line in omit:
                                             if line[0] in (' ','+'): n+=1
-                                        print "   ", "(... %d lines ommitted ...)" % len(omit)
+                                        print("   ", "(... %d lines ommitted ...)" % len(omit))
                                     else:
                                         for line in omit:
                                             if line[0] in (' ','+'): n+=1
-                                            print "%03d" % n , line      ,    
+                                            print("%03d" % n , line, end=' ')    
                                     omit = []
                                 if line[0] in (' ','+'): 
                                     n+=1
-                                    print "%03d" % n , line      ,    
+                                    print("%03d" % n , line, end=' ')    
                                 else:                                
-                                    print "%03d" % (n+1) , line      ,    
+                                    print("%03d" % (n+1) , line, end=' ')    
                             else:
                                 omit.append(line)
                         if len(omit) :
                             if len(omit)>= Context:
                                 for line in omit:
                                     if line[0] in (' ','+'): n+=1
-                                print "   ", "(... %d lines ommitted ...)" % len(omit)
+                                print("   ", "(... %d lines ommitted ...)" % len(omit))
                             else:
                                 for line in omit:
                                     if line[0] in (' ','+'): n+=1
-                                    print "%03d" % n , line      ,    
+                                    print("%03d" % n , line, end=' ')    
                             omit = []
-                        print
+                        print()
                     else:
-                        print "(diff ommitted because we couldn't find original files)"
+                        print("(diff ommitted because we couldn't find original files)")
                 
-        print
-        print "Deleted names:"
+        print()
+        print("Deleted names:")
         deletedNames = sorted(list(self.pfA.sNames - self.pfB.sNames))
         for name in deletedNames:      
-            print "-", name
-        print
-        print "Added names:"
+            print("-", name)
+        print()
+        print("Added names:")
         addedNames = sorted(list(self.pfB.sNames - self.pfA.sNames))
         for name in addedNames:      
-            print "-", name
-        print
+            print("-", name)
+        print()
 
         return
     
@@ -381,16 +387,16 @@ class FindEquivalences:
                 
         for pkA in sorted(self.pfA.idxtree):
             parentsA = tree_parents(pkA)        
-            for pkB, punt in self.equivalences[pkA].iteritems():
+            for pkB, punt in self.equivalences[pkA].items():
                 if len(pkA) != len(pkB): continue
                 parentsB = tree_parents(pkB)
-                parentsAB = zip(parentsA,parentsB)
+                parentsAB = list(zip(parentsA,parentsB))
                 for pA, pB in parentsAB:
                     sz2a, sz2b = self.pfA.idxtree[pkA]
                     sz2 = sz2b - sz2a + 1
                     sz1a, sz1b = self.pfA.idxtree[pA]
                     sz1 = sz1b - sz1a + 1
-                    lev2 = 1.0 + sz1 / float(sz2)
+                    lev2 = 1.0 + old_div(sz1, float(sz2))
                     #lev2 = 2**(len(pkA) - len(pA))
                     #lev2_list = [ pC for pC in self.pfA.idxtree if len(pC) >= len(pA) and pC[:len(pA)] == pA ]
                     #lev2_plist = set([])
@@ -398,7 +404,7 @@ class FindEquivalences:
                     #    lev2_plist |= set(tree_parents(l)[1:])
                     #lev2 = len(set(lev2_list) - set(lev2_plist))
                             
-                    pEq = (pB, float(punt)/lev2)
+                    pEq = (pB, old_div(float(punt),lev2))
                     if pA not in self.parent_equivalences: 
                         self.parent_equivalences[pA] = []
                     self.parent_equivalences[pA].append(pEq)
@@ -419,7 +425,7 @@ class FindEquivalences:
                 ppB = None
                 
             rowA = self.pfA.table[self.pfA.idxtree[pA]]
-            for key, punt in count.copy().iteritems():
+            for key, punt in count.copy().items():
                 if ppB and key[:-1] != ppB: continue  
                 rowB = self.pfB.table[self.pfB.idxtree[pB]]
                 nameA = self.pfA.fullQName(pA) #rowA['name'].split(":")
@@ -440,12 +446,12 @@ class FindEquivalences:
                 punt, pB = max(rcount)
                 self.parent_equivalences2[pA] = pB
                 rowB = self.pfB.table[self.pfB.idxtree[pB]]
-                print "parent:", pA, self.pfA.fullQName(pA), "%d%%\t" % punt, pB, len(rcount) , self.pfB.fullQName(pB)
+                print("parent:", pA, self.pfA.fullQName(pA), "%d%%\t" % punt, pB, len(rcount) , self.pfB.fullQName(pB))
                 if punt > 100:
                     norepeat = pA
             else:        
                 if len(pA) == 1:
-                    print "parent:", pA, self.pfA.fullQName(pA), "0%\t  ???"
+                    print("parent:", pA, self.pfA.fullQName(pA), "0%\t  ???")
                 
         """
         norepeat = (0,)
@@ -492,7 +498,7 @@ class FindEquivalences:
         
     def addEquivalences(self,lpkA,lpkB):
         lstEquivalences = self.multiplyEquivalences(lpkA,lpkB)
-        base_probability = 1.0 / len(lstEquivalences)
+        base_probability = old_div(1.0, len(lstEquivalences))
         if base_probability < 0.01: return
 
         for pkA,pkB in lstEquivalences:
@@ -500,7 +506,7 @@ class FindEquivalences:
             parentA = pkA[:-1]
             parent_prob, parentB = self.getMaxKnown(parentA)
             if parentB:
-                if parentB != pkB[:-1]: parent_prob = (1-parent_prob) / 2.0
+                if parentB != pkB[:-1]: parent_prob = old_div((1-parent_prob), 2.0)
                 probability *= parent_prob 
                 
             parentB = pkB[:-1]
@@ -508,7 +514,7 @@ class FindEquivalences:
             if pkA not in self.equivalences:
                 self.equivalences[pkA] = {}
             if pkB in self.equivalences[pkA]:
-                print "DUPLICATE", pkA,pkB
+                print("DUPLICATE", pkA,pkB)
             self.equivalences[pkA][pkB] = probability
             previousMax, prevPkB = self.getMaxKnown(pkA)
             if probability > previousMax:
@@ -539,7 +545,7 @@ def process(filename):
     hashes = {}
     list_hashes = []
     
-    for d,idx in treebydepth.iteritems():
+    for d,idx in treebydepth.items():
         if d > 2: break
         nitems = len(idx)
         if maxitems < nitems: maxitems = nitems
@@ -589,7 +595,7 @@ def load(filename):
         ]
     bydepth = {}
     for line in file:
-        row = dict(zip(fields,line[:-1].split("\t")))
+        row = dict(list(zip(fields,line[:-1].split("\t"))))
         for f in intfields: row[f]=int(row[f])
         pk = getpk(row)
         depth = row["depth"]
@@ -597,7 +603,7 @@ def load(filename):
         bydepth[depth].append(pk)
         rows[pk]=row
         
-    for dpth, items in bydepth.iteritems():
+    for dpth, items in bydepth.items():
         bydepth[dpth] = list(sorted(items))
 
     idxtree = {}
@@ -624,7 +630,7 @@ def load(filename):
                     np += offset
                     if offset: n = 1
                     if offset < 0:
-                        print list(enumerate(bydepth[pdepth]))
+                        print(list(enumerate(bydepth[pdepth])))
                         assert(offset >= 0)
                     #if it > 100:
                     #    print it,n,pk,np, ppk, offset
@@ -641,9 +647,9 @@ def load(filename):
             tree_id = nparent + [n]
             row["tree_id"] = tree_id
             if tuple(tree_id) in idxtree:
-                print "ERROR:", tuple(tree_id), " is duplicated:"
-                print "previous:", idxtree[tuple(tree_id)] 
-                print "new:" , pk
+                print("ERROR:", tuple(tree_id), " is duplicated:")
+                print("previous:", idxtree[tuple(tree_id)]) 
+                print("new:" , pk)
             else:
                 idxtree[tuple(tree_id)] = pk 
             

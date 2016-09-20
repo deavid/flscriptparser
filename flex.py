@@ -1,3 +1,4 @@
+from __future__ import print_function
 # ----------------------------------------------------------------------
 # clex.py
 #
@@ -192,7 +193,7 @@ def t_preprocessor(t):
 
     
 def t_error(t):
-    print "Illegal character %s" % repr(t.value[0])
+    print("Illegal character %s" % repr(t.value[0]))
     t.lexer.skip(1)
 
 

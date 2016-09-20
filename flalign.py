@@ -1,10 +1,13 @@
+from __future__ import print_function
+from builtins import next
+from builtins import object
 import os, os.path, sys
 import math
 from optparse import OptionParser
 import difflib 
 import re
 
-class ProcessFile:
+class ProcessFile(object):
     def __init__(self, filename):
         self.filename = filename
         self.process()
@@ -46,7 +49,7 @@ class ProcessFile:
         
         return added, deleted
         
-class LineNumber:
+class LineNumber(object):
     def __init__(self, letter, lines):
         self.nl=0
         if len(letter)>1:
@@ -157,7 +160,7 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
                 return
         if conflict and linetext[0]!="#":
             if debug:
-                print "WARNING: Omitting previously added block <%s>" % linetext
+                print("WARNING: Omitting previously added block <%s>" % linetext)
             
             while patchedResult[-1][4][0]=="#" and patchedResult[-1][4].find("separator") >= 0: 
                 #print "sep//",
@@ -194,45 +197,45 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
         def Minus():
             AddPatchLine(letter + "-")
             if debug:
-                print letter + "-%04d" % int(nBase), nBase.line()
+                print(letter + "-%04d" % int(nBase), nBase.line())
             if nBase.line() != nDiffLocal.line() and not quiet:
-                print letter + "!    " , nDiffLocal.line()
+                print(letter + "!    " , nDiffLocal.line())
             if nDiffRemote.symbol()!=" " and not quiet:
                 if nDiffRemote.symbol()=="-":
                     #Removing twice!
                     nBase.error = "removing-twice"
                 else:
-                    print "??", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line()
+                    print("??", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line())
             else:
-                nRemote.next()
+                next(nRemote)
         
-            nDiffLocal.next()
-            nDiffRemote.next()
-            nBase.next()
+            next(nDiffLocal)
+            next(nDiffRemote)
+            next(nBase)
     
         def Plus():
             AddPatchLine(letter + "+")
             if debug:
-                print letter + "+%04d" % int(nLocal), nLocal.line()
+                print(letter + "+%04d" % int(nLocal), nLocal.line())
             if nLocal.line()!=nDiffLocal.line() and not quiet:
-                print letter + "!    " , nDiffLocal.line()
+                print(letter + "!    " , nDiffLocal.line())
             if nBase.error == "removing-twice":
                 nBase.error = None
                 while nDiffRemote.symbol() == "?": 
-                    nDiffRemote.next()
+                    next(nDiffRemote)
                 if nDiffRemote.symbol() == "+":
                     if not quiet:
-                        print "!~", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line()
-                    nDiffRemote.next()
-                    nRemote.next()
+                        print("!~", nRemote.letter, nDiffRemote.symbol(),nDiffRemote.line())
+                    next(nDiffRemote)
+                    next(nRemote)
                 
             
-            nDiffLocal.next()
-            nLocal.next()
+            next(nDiffLocal)
+            next(nLocal)
 
         def Info():
             #if debug:  print letter + "?>   " , nDiffLocal.line()
-            nDiffLocal.next()
+            next(nDiffLocal)
 
         if   sign == "-": Minus()
         elif sign == "+": Plus()
@@ -251,13 +254,13 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
         sAB = cAB = lineaA = " "
         sAC = cAC = lineaC = " "
         if int(nlA) >= maxA : 
-            if int(nlA) - maxA > 0 : print "A overflow!", int(nlA) - maxA
+            if int(nlA) - maxA > 0 : print("A overflow!", int(nlA) - maxA)
             lineaA = " "
         else: lineaA = A.sortednames[nlA]
         
         if int(nlB) >= maxB : 
             sAB = cAB = lineaA = " "
-            if int(nlB) - maxB > 0 :  print "B overflow!", int(nlB) - maxB
+            if int(nlB) - maxB > 0 :  print("B overflow!", int(nlB) - maxB)
         else:
             lineaB = B.sortednames[nlB]
         
@@ -267,7 +270,7 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
             
         if int(nlC) >= maxC : 
             sAC = cAC = lineaC = " "
-            if int(nlC) - maxC > 0 : print "C overflow!", int(nlC) - maxC
+            if int(nlC) - maxC > 0 : print("C overflow!", int(nlC) - maxC)
         else:
             lineaC = C.sortednames[nlC]
 
@@ -280,30 +283,30 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
             AddPatchLine("A=")
             if debug:
                 if prefer == "":
-                    print "ABC=%04d%+d%+d" % (nlA,nlB-nlA,nlC-nlA),lineaA
+                    print("ABC=%04d%+d%+d" % (nlA,nlB-nlA,nlC-nlA),lineaA)
                 elif prefer == "A":
-                    print "A=%04d" % nlA,lineaA
+                    print("A=%04d" % nlA,lineaA)
                 elif prefer == "B":
-                    print "B=%04d" % nlB,lineaB
+                    print("B=%04d" % nlB,lineaB)
                 elif prefer == "C":
-                    print "C=%04d" % nlC,lineaC
+                    print("C=%04d" % nlC,lineaC)
                 else:
                     assert prefer in ["A","B","C"]
             if not quiet:
                 if lineaA!=cAB:
-                    print "A!=B  " , cAB
+                    print("A!=B  " , cAB)
                 if lineaA!=cAC:
-                    print "A!=C  " , cAC
+                    print("A!=C  " , cAC)
                 if lineaA != lineaB or lineaC != lineaA:
-                    print "wtf!?A:", lineaA
-                    print "wtf!?B:", lineaB
-                    print "wtf!?C:", lineaC
+                    print("wtf!?A:", lineaA)
+                    print("wtf!?B:", lineaB)
+                    print("wtf!?C:", lineaC)
                 
-            nlAB.next()
-            nlAC.next()
-            nlA.next()
-            nlB.next()
-            nlC.next()
+            next(nlAB)
+            next(nlAC)
+            next(nlA)
+            next(nlB)
+            next(nlC)
         elif swap and sAB=="+": Patch("B+")
         elif sAC=="+": Patch("C+")
         elif sAC=="?": Patch("C?")
@@ -314,14 +317,14 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
         elif sAB=="-": Patch("B-")
         else:
             if not quiet:
-                print sAB,"*", sAC
+                print(sAB,"*", sAC)
             break
         
-    addedB = set(filter(lambda x: x[0]!="#",AddedB))
-    addedC = set(filter(lambda x: x[0]!="#",AddedC))
+    addedB = set([x for x in AddedB if x[0]!="#"])
+    addedC = set([x for x in AddedC if x[0]!="#"])
     
-    deletedB = set(filter(lambda x: x[0]!="#",DeletedB))
-    deletedC = set(filter(lambda x: x[0]!="#",DeletedC))
+    deletedB = set([x for x in DeletedB if x[0]!="#"])
+    deletedC = set([x for x in DeletedC if x[0]!="#"])
     
     movedB = addedB & deletedB
     movedC = addedC & deletedC
@@ -332,28 +335,28 @@ def appliedDiff(C, A, B, prefer = "C", debug = False, quiet = False, swap = Fals
     conflictsDA = deletedB & addedC
     
     if movedB:
-        print "CONFLICTS BLOCK MOVED A(%s)->B(%s):" % (A.filename,B.filename)
-        for name in movedB: print "-",name
+        print("CONFLICTS BLOCK MOVED A(%s)->B(%s):" % (A.filename,B.filename))
+        for name in movedB: print("-",name)
         
     if movedC:
-        print "CONFLICTS BLOCK MOVED A(%s)->C(%s):" % (A.filename,C.filename)
-        for name in movedC: print "-",name
+        print("CONFLICTS BLOCK MOVED A(%s)->C(%s):" % (A.filename,C.filename))
+        for name in movedC: print("-",name)
         
     if conflictsAA:
-        print "CONFLICTS SAME BLOCK ADDED B(%s)-C(%s):"  % (B.filename,C.filename)
-        for name in conflictsAA: print "-",name
+        print("CONFLICTS SAME BLOCK ADDED B(%s)-C(%s):"  % (B.filename,C.filename))
+        for name in conflictsAA: print("-",name)
         
     if conflictsDD:
-        print "CONFLICTS SAME BLOCK DELETED B(%s)-C(%s):"  % (B.filename,C.filename)
-        for name in conflictsDD: print "-",name
+        print("CONFLICTS SAME BLOCK DELETED B(%s)-C(%s):"  % (B.filename,C.filename))
+        for name in conflictsDD: print("-",name)
         
     if conflictsAD:
-        print "CONFLICTS BLOCK ADDED BY %s , DELETED BY %s:" % (B.filename,C.filename)
-        for name in conflictsAD: print "-",name
+        print("CONFLICTS BLOCK ADDED BY %s , DELETED BY %s:" % (B.filename,C.filename))
+        for name in conflictsAD: print("-",name)
         
     if conflictsDA:
-        print "CONFLICTS BLOCK DELETED BY %s , ADDED BY %s:" % (B.filename,C.filename)
-        for name in conflictsDA: print "-",name
+        print("CONFLICTS BLOCK DELETED BY %s , ADDED BY %s:" % (B.filename,C.filename))
+        for name in conflictsDA: print("-",name)
         
         
     
@@ -393,7 +396,7 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
         try:
             linebegin, lineend, line = F[Fwhich].blocks[nl]
         except IndexError:
-            print "!!!ERROR MERGING!!"
+            print("!!!ERROR MERGING!!")
             continue
         
         text = "".join(
@@ -424,7 +427,7 @@ def writeAlignedFile(C, A, B, prefer = "C", debug = False, quiet = False, swap =
                         text = text.replace(badline,goodline)
                             
                 else:
-                    print text[:64]
+                    print(text[:64])
                 
         #if debug:
         #    fout.write("<<< %s || %s >>>\n" % (Fwhich, line))
@@ -454,16 +457,16 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.optdebug:
-        print options, args
+        print(options, args)
 
-    filenames = filter(lambda x: os.path.isfile(x) , args)
+    filenames = [x for x in args if os.path.isfile(x)]
     not_a_file = set(args) - set(filenames)
     if len(not_a_file):
-        print "WARNING: Not a file:", ", ".join(not_a_file)
+        print("WARNING: Not a file:", ", ".join(not_a_file))
         return
 
     if len(filenames) != 3:
-        print "MUST have exactly 3 files to align."
+        print("MUST have exactly 3 files to align.")
     pfiles = []        
     for file1 in filenames:
         #print "Load File:", file1

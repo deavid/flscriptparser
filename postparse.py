@@ -1,9 +1,14 @@
 #!/usr/bin/python
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 from optparse import OptionParser
 import os, os.path, sys
-import flscriptparse
+from pineboolib.flparser import flscriptparse
 import imp, traceback
 from lxml import etree
+from future.utils import with_metaclass
 USEFUL_TOKENS="ID,ICONST,FCONST,SCONST,CCONST,RXCONST".split(",")
 
 KNOWN_PARSERS = {}
@@ -18,13 +23,13 @@ def parse_for(*tagnames):
 
 def parse(tagname, treedata):
     global KNOWN_PARSERS,UNKNOWN_PARSERS
-    if tagname not in KNOWN_PARSERS: 
+    if tagname not in KNOWN_PARSERS:
         UNKNOWN_PARSERS[tagname] = 1
         fn = parse_unknown
     else:
         fn = KNOWN_PARSERS[tagname]
     return fn(tagname,treedata)
-    
+
 
 def getxmltagname(tagname):
     if tagname == "source": return "Source"
@@ -34,15 +39,14 @@ def getxmltagname(tagname):
     return "Unknown.%s" % tagname
 
 xml_class_types = []
-    
+
 class TagObjectFactory(type):
     def __init__(cls, name, bases, dct):
         global xml_class_types
         xml_class_types.append(cls)
         super(TagObjectFactory, cls).__init__(name, bases, dct)
-        
-class TagObject(object):
-    __metaclass__ = TagObjectFactory
+
+class TagObject(with_metaclass(TagObjectFactory, object)):
     tags = []
     set_child_argn = False
     name_is_first_id = False
@@ -51,13 +55,13 @@ class TagObject(object):
     omit_tags = ['empty']
     callback_subelem = {}
     promote_child_if_alone = False
-    
+
     @classmethod
     def tagname(self, tagname): return self.__name__
-    
+
     @classmethod
     def can_process_tag(self, tagname): return tagname in self.tags
-    
+
     def __init__(self, tagname):
         self.astname = tagname
         self.xml = etree.Element(self.tagname(tagname))
@@ -66,17 +70,17 @@ class TagObject(object):
         self.values = []
         if self.name_is_first_id:
             self.xml.set("name","")
-    
+
     def adopt_children(self, argn, subelem):
         for child in subelem.xml.iterchildren():
             if self.set_child_argn: child.set("argn",str(argn))
-            else: 
+            else:
                 if 'argn' in child.attrib: del child.attrib['argn']
             self.xml.append(child)
 
     def omit_subelem(self, argn, subelem):
         return
-    
+
     def is_in(self, listobj):
         return self.__class__ in listobj or self.astname in listobj
 
@@ -84,31 +88,31 @@ class TagObject(object):
         if self.__class__ in listobj: return listobj[self.__class__]
         if self.astname in listobj: return listobj[self.astname]
         return default
-        
-        
+
+
     def add_subelem(self, argn, subelem):
         if subelem.is_in(self.omit_tags): return self.omit_subelem(argn, subelem)
         if subelem.is_in(self.adopt_childs_tags): return self.adopt_children(argn, subelem)
         callback = subelem.get(self.callback_subelem)
         if callback: return getattr(self,callback)(argn,subelem)
-        
+
         if self.set_child_argn: subelem.xml.set("argn",str(argn))
         self.xml.append(subelem.xml)
         self.subelems.append(subelem)
-    
+
     def add_value(self, argn, vtype, value):
         self.values.append( (vtype, value) )
         if vtype == "ID" and self.name_is_first_id and self.xmlname is None:
             self.xmlname = value
             self.xml.set("name",value)
             return
-            
+
         self.xml.set("arg%02d" % argn,vtype + ":" + repr(value))
-    
+
     def add_other(self, argn, vtype, data):
         if self.debug_other:
             self.xml.set("arg%02d" % argn,vtype)
-    
+
     def polish(self):
         if self.promote_child_if_alone:
             if len(self.values) == 0 and len(self.subelems) == 1:
@@ -119,7 +123,7 @@ class TagObject(object):
 class ListObject(TagObject):
     set_child_argn = False
     debug_other = False
-    
+
 class NamedObject(TagObject):
     name_is_first_id = True
     debug_other = False
@@ -170,7 +174,7 @@ class Function(ListNamedObject):
     tags = ["funcdeclaration"]
     callback_subelem = ListNamedObject.callback_subelem.copy()
     callback_subelem[VariableType] = "add_vartype"
-    
+
     def add_vartype(self, argn, subelem):
         self.xml.set("returns", str(subelem.xmlname))
 
@@ -178,10 +182,10 @@ class Variable(NamedObject):
     tags = ["vardecl"]
     callback_subelem = NamedObject.callback_subelem.copy()
     callback_subelem[VariableType] = "add_vartype"
-    
+
     def add_vartype(self, argn, subelem):
         self.xml.set("type", str(subelem.xmlname))
-        
+
 class DeclarationBlock(ListObject):
     tags = ["vardeclaration"]
     adopt_childs_tags = ['vardecl_list']
@@ -234,7 +238,7 @@ class Compare(TypedObject):
     debug_other = True
     tags = ["cmp_symbol","boolcmp_symbol"]
 
-class FunctionCall(NamedObject):    
+class FunctionCall(NamedObject):
     tags = ["funccall_1"]
 
 class CallArguments(ListObject):
@@ -243,12 +247,12 @@ class CallArguments(ListObject):
 class Constant(ListObject):
     tags = ["constant"]
     def add_value(self, argn, vtype, value):
-        value = unicode(value,"ISO-8859-15","replace")
-        if vtype == "SCONST": 
+        value = str(value) #str(value,"ISO-8859-15","replace")
+        if vtype == "SCONST":
             vtype = "String"
             value = value[1:-1]
             self.xml.set("delim",'"')
-        if vtype == "CCONST": 
+        if vtype == "CCONST":
             vtype = "String"
             value = value[1:-1]
             self.xml.set("delim","'")
@@ -259,7 +263,7 @@ class Constant(ListObject):
         self.const_type = vtype
         self.xml.set("type",vtype)
         self.xml.set("value",value)
-        
+
 class InlineUpdate(ListObject):
     tags = ["inlinestoreinstruction"]
     def add_other(self, argn, vtype, value):
@@ -271,7 +275,7 @@ class InlineUpdate(ListObject):
 
 class If(ListObject):
     tags = ["ifstatement"]
-            
+
 class Condition(ListObject):
     tags = ["condition"]
 
@@ -287,16 +291,16 @@ class Else(ListObject):
 class ExpressionContainer(ListObject):
     tags = ["expression"]
     # adopt_childs_tags = ['base_expression']
-    
+
     def polish(self):
         if len(self.values) == 0 and len(self.subelems) == 1:
-            #if isinstance(self.subelems[0], Constant):  
+            #if isinstance(self.subelems[0], Constant):
             if self.subelems[0].xml.tag == "base_expression":
                 self.subelems[0].xml.tag = "Expression"
                 return self.subelems[0]
-            else: 
+            else:
                 self.xml.tag = "Value"
-            
+
         return self
 
 class InstructionUpdate(ListObject):
@@ -329,8 +333,8 @@ class ForCompare(ListObject):
     tags = ["for_compare"]
 
 class ForIncrement(ListObject):
-    tags = ["for_increment"]    
-    
+    tags = ["for_increment"]
+
 class DoWhile(ListObject):
     tags = ["dowhilestatement"]
 
@@ -345,14 +349,14 @@ class TryCatch(ListObject):
 
 class New(ListObject):
     tags = ["new_operator"]
-    
+
 class Delete(ListObject):
     tags = ["deleteinstruction"]
-    
+
 class Parentheses(ListObject):
     tags = ["parentheses"]
     adopt_childs_tags = ['base_expression']
-    
+
 class OpUnary(TypedObject):
     tags = ["unary_operator"]
 
@@ -361,7 +365,7 @@ class OpTernary(ListObject):
 
 class OpUpdate(TypedObject):
     tags = ["updateoperator"]
-    
+
 
 
 # ----- keep this one at the end.
@@ -370,7 +374,7 @@ class Unknown(TagObject):
     set_child_argn = False
     @classmethod
     def tagname(self, tagname): return tagname
-    
+
     @classmethod
     def can_process_tag(self, tagname): return True
 # -----------------
@@ -395,7 +399,7 @@ def parse_unknown(tagname, treedata):
             xmlelem.add_value(i, k, v)
         else:
             xmlelem.add_other(i, k, v)
-            
+
         i+=1
     return xmlelem.polish()
 
@@ -405,8 +409,8 @@ def post_parse(treedata):
     source = parse("source",treedata)
     #print UNKNOWN_PARSERS.keys()
     return source.xml
-    
-class Module:
+
+class Module(object):
     def __init__(self, name, path):
         self.name = name
         self.path = path
@@ -421,14 +425,14 @@ class Module:
             # fp, pathname, description = imp.find_module(self.name,[self.path])
             self.module = imp.load_module(name, fp, pathname, description)
             result = True
-        except Exception,e:
-            print traceback.format_exc()
+        except Exception as e:
+            print(traceback.format_exc())
             result = False
         if fp:
-            fp.close()   
+            fp.close()
         return result
 
-def main():
+def parseArgs(argv):
     parser = OptionParser()
     parser.add_option("-q", "--quiet",
                     action="store_false", dest="verbose", default=True,
@@ -437,23 +441,23 @@ def main():
     parser.add_option("--optdebug",
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
-                    
+
     parser.add_option("--debug",
                     action="store_true", dest="debug", default=False,
                     help="prints lots of useless messages")
-                    
+
     parser.add_option("--path",
                     dest="storepath", default=None,
                     help="store XML results in PATH")
-                    
+
     parser.add_option("--topython",
                     action="store_true", dest="topython", default=False,
                     help="write python file from xml")
-                    
+
     parser.add_option("--exec-py",
                     action="store_true", dest="exec_python", default=False,
                     help="try to execute python file")
-                    
+
     parser.add_option("--toxml",
                     action="store_true", dest="toxml", default=False,
                     help="write xml file from qs")
@@ -462,83 +466,96 @@ def main():
                     action="store_true", dest="full", default=False,
                     help="write xml file from qs")
 
-    (options, args) = parser.parse_args()
+    (options, args) = parser.parse_args(argv)
+    return (options, args)
+
+def main():
+    options, args = parseArgs(sys.argv[1:])
     execute(options,args)
-    
+
+def pythonify(filelist):
+    options, args = parseArgs([])
+    options.full = True
+    if isinstance(filelist, str): filelist = [filelist]
+    execute(options,filelist)
+
+
+
+
 def execute(options, args):
     if options.optdebug:
-        print options, args
+        print(options, args)
     if options.full:
         options.full = False
         options.toxml = True
-        print "Pass 1 - Parse and write XML file . . ."
+        print("Pass 1 - Parse and write XML file . . .")
         execute(options,args)
-        
+
         options.toxml = False
         options.topython = True
-        print "Pass 2 - Pythonize and write PY file . . ."
+        print("Pass 2 - Pythonize and write PY file . . .")
         execute(options,[ arg+".xml" for arg in args])
 
         options.topython = False
         options.exec_python = True
         #print "Pass 3 - Test PY file load . . ."
         #execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
-        print "Done."
-        
+        print("Done.")
+
     elif options.exec_python:
-        import qsatype
+        from . import qsatype
         for filename in args:
             realpath = os.path.realpath(filename)
             path, name = os.path.split(realpath)
             mod = Module(name, path)
             if mod.loadModule():
-                print mod.module
-                print mod.module.form
+                print(mod.module)
+                print(mod.module.form)
             else:
-                print "Error cargando modulo %s" % name
-            
+                print("Error cargando modulo %s" % name)
+
     elif options.topython:
-        from pytnyzer import pythonize
+        from .pytnyzer import pythonize
         for filename in args:
             bname = os.path.basename(filename)
             if options.storepath:
-                destname = os.path.join(options.storepath,bname+".py") 
+                destname = os.path.join(options.storepath,bname+".py")
             else:
                 destname = filename+".py"
             destname = destname.replace(".qs.xml.py",".py")
             pythonize(filename, destname)
-    
-    else:        
+
+    else:
         nfs = len(args)
         for nf, filename in enumerate(args):
             bname = os.path.basename(filename)
             sys.stdout.write("Parsing File: %-35s . . . .        (%.1f%%)    " % (bname,100.0*(nf+1.0)/nfs))
             sys.stdout.flush();
-            prog = flscriptparse.parse(open(filename).read())                      
+            prog = flscriptparse.parse(open(filename,"r", encoding="latin-1").read())
             sys.stdout.write("\r");
             if not prog:
-                print "Error: No se pudo abrir %-35s          \n" % (repr(filename))
+                print("Error: No se pudo abrir %-35s          \n" % (repr(filename)))
                 continue
             if prog["error_count"] > 0:
-                print "Encontramos %d errores parseando: %-35s          \n" % (prog["error_count"], repr(filename))
+                print("Encontramos %d errores parseando: %-35s          \n" % (prog["error_count"], repr(filename)))
                 continue
-            if options.toxml == False: 
+            if options.toxml == False:
                 # Si no se quiere guardar resultado, no hace falta calcular mas
                 continue
-            
+
             tree_data = flscriptparse.calctree(prog, alias_mode = 0)
             if not tree_data:
-                print "No se pudo parsear %-35s          \n" % (repr(filename))
+                print("No se pudo parsear %-35s          \n" % (repr(filename)))
                 continue
             ast = post_parse(tree_data)
             if ast is None:
-                print "No se pudo analizar %-35s          \n" % (repr(filename))
+                print("No se pudo analizar %-35s          \n" % (repr(filename)))
                 continue
             if options.storepath:
-                destname = os.path.join(options.storepath,bname+".xml") 
+                destname = os.path.join(options.storepath,bname+".xml")
             else:
                 destname = filename+".xml"
-            f1 = open(destname,"w")
+            f1 = open(destname,"wb")
             f1.write(etree.tostring(ast, pretty_print = True))
             f1.close()
 
