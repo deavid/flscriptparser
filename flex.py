@@ -14,10 +14,10 @@ import ply.lex as lex
 reserved = [
     'BREAK', 'CASE', 'CONST', 'STATIC', 'CONTINUE', 'DEFAULT', 'DO',
     'ELSE', 'FOR', 'IF', 'IN',
-    'RETURN', 
-    #'STRUCT', 
-    'SWITCH', 
-    'WHILE', 'CLASS', 'VAR', 'FUNCTION', 
+    'RETURN',
+    #'STRUCT',
+    'SWITCH',
+    'WHILE', 'CLASS', 'VAR', 'FUNCTION',
     'EXTENDS', 'NEW','WITH','TRY','CATCH','THROW', 'DELETE', 'TYPEOF'
     ]
 token_literals = [
@@ -28,13 +28,13 @@ tokens = reserved + token_literals + [
 
     # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
-    'OR', 'AND',  
+    'OR', 'AND',
     'CONDITIONAL1','AT',
-    #'NOT', 
+    #'NOT',
     'XOR', 'LSHIFT', 'RSHIFT',
     'LOR', 'LAND', 'LNOT',
     'LT', 'LE', 'GT', 'GE', 'EQ', 'NE',
-    
+
     # Assignment (=, *=, /=, %=, +=, -=, <<=, >>=, &=, ^=, |=)
     'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL',
 #    'LSHIFTEQUAL','RSHIFTEQUAL', 'ANDEQUAL', 'XOREQUAL', 'OREQUAL',
@@ -47,7 +47,7 @@ tokens = reserved + token_literals + [
 
     # Conditional operator (?)
 #    'CONDOP',
-    
+
     # Delimeters ( ) [ ] { } , . ; :
     'LPAREN', 'RPAREN',
     'LBRACKET', 'RBRACKET',
@@ -58,7 +58,7 @@ tokens = reserved + token_literals + [
 #    'ELLIPSIS',
     'DOCSTRINGOPEN',
  #   'COMMENTOPEN',
-    'COMMENTCLOSE', 
+    'COMMENTCLOSE',
     'DOLLAR',
     'SQOUTE',
     'DQOUTE',
@@ -72,7 +72,7 @@ t_ignore           = ' \r\t\x0c'
 def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += t.value.count("\n")
-    
+
 # Operators
 t_BACKSLASH       = '\\\\'
 t_DOLLAR             = r'\$'
@@ -168,7 +168,7 @@ t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
 # Character constant 'c' or L'c'
 t_CCONST = r'\'([^\\\n]|(\\.))*?\''
 
-# REGEX constant 
+# REGEX constant
 #t_RXCONST = r'/[^/ ]+/g?'
 
 # Comments
@@ -185,24 +185,24 @@ def t_DOCSTRINGOPEN(t):
 #t_COMMENTOPEN      = r'/\*'
 t_COMMENTCLOSE     = r'\*/'
 
- 
+
 # Preprocessor directive (ignored)
 def t_preprocessor(t):
     r'\#(.)*?\n'
     t.lexer.lineno += 1
 
-    
+
 def t_error(t):
     print("Illegal character %s" % repr(t.value[0]))
     t.lexer.skip(1)
 
 
-    
+
 lexer = lex.lex(debug=False)
 if __name__ == "__main__":
     lex.runmain(lexer)
 
-    
+
 
 
 

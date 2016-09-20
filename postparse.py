@@ -7,7 +7,11 @@ from optparse import OptionParser
 import os, os.path, sys
 import imp, traceback
 from lxml import etree
-from future.utils import with_metaclass
+try:
+    from future.utils import with_metaclass
+except ImportError:
+    pass
+    
 
 try:
     from pineboolib.flparser import flscriptparse
@@ -235,6 +239,11 @@ class InstructionFlow(TypedObject):
     debug_other = True
     tags = ["flowinstruction"]
 
+class Instruction(TagObject):
+    promote_child_if_alone = True
+    debug_other = False
+    tags = ["instruction"]
+
 class OpMath(TypedObject):
     debug_other = True
     tags = ["mathoperator"]
@@ -291,6 +300,13 @@ class Else(ListObject):
         if len(self.subelems) == 0:
             self.astname = "empty"
         return self
+
+class DictObject(ListObject):
+    tags = ["dictobject_value_elemlist","dictobject_value"]
+    adopt_childs_tags = ['dictobject_value_elemlist',"dictobject_value"]
+
+class DictElem(ListObject):
+    tags = ["dictobject_value_elem"]
 
 
 class ExpressionContainer(ListObject):
@@ -483,7 +499,7 @@ def pythonify(filelist):
     options.full = True
     if isinstance(filelist, str): filelist = [filelist]
     execute(options,filelist)
-
+    print(filelist)
 
 
 

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # ------ Pythonyzer ... reads XML AST created by postparse.py and creates an equivalent Python file.
 from __future__ import print_function
 from __future__ import absolute_import
@@ -44,7 +45,7 @@ class ASTPython(with_metaclass(ASTPythonFactory, object)):
     def polish(self): return self
 
     def generate(self, **kwargs):
-        yield "debug", etree.tostring(self.elem)
+        yield "debug", "* not-known-seq * " + etree.tounicode(self.elem)
 
 
 class Source(ASTPython):
@@ -210,7 +211,7 @@ class TryCatch(ASTPython):
                     yield dtype, data
             identifier = " ".join(expr)
         if identifier:
-            yield "line", "except Exception, %s:" % (identifier)
+            yield "line", "except Exception as %s:" % (identifier)
         else:
             yield "line", "except Exception:"
         yield "begin", "block-except"
@@ -246,7 +247,7 @@ class While(ASTPython):
 
 class For(ASTPython):
     def generate(self, **kwargs):
-        main_expr = []
+        init_expr = []
         for n,arg in enumerate(self.elem.xpath("ForInitialize/*")):
             expr = []
             for dtype, data in parse_ast(arg).generate(isolate = False):
@@ -255,9 +256,9 @@ class For(ASTPython):
                 else:
                     yield dtype, data
             if len(expr) > 0:
-                main_expr.append(" ".join(expr))
-        if main_expr:
-            yield "line", " ".join(main_expr)
+                init_expr.append(" ".join(expr))
+        if init_expr:
+            yield "line", " ".join(init_expr)
 
         incr_expr = []
         incr_lines = []
@@ -286,7 +287,7 @@ class For(ASTPython):
                 main_expr.append("True")
             else:
                 main_expr.append(" ".join(expr))
-        yield "debug", "FOR:"
+        #yield "debug", "WHILE-FROM-QS-FOR: (%r;%r;%r)" % (init_expr,main_expr,incr_lines)
         yield "line", "while %s:" % (" ".join(main_expr))
         for source in self.elem.xpath("Source"):
             yield "begin", "block-for"
@@ -295,6 +296,28 @@ class For(ASTPython):
                 for line in incr_lines:
                     yield "line", line
             yield "end", "block-for"
+
+class ForIn(ASTPython):
+    def generate(self, **kwargs):
+        list_elem, main_list = "None", "None"
+        myelems = []
+        for e in self.elem:
+            if e.tag == "Source": break
+            if e.tag == "ForInitialize": e = list(e)[0]
+            expr = []
+            for dtype, data in parse_ast(e).generate(isolate = False):
+                if dtype == "expr":
+                    expr.append(data)
+                else:
+                    yield dtype, data
+            myelems.append(" ".join(expr))
+        list_elem, main_list = myelems
+        yield "debug", "FOR-IN: " + repr(myelems)
+        yield "line", "for %s in %s:" % (list_elem, main_list)
+        for source in self.elem.xpath("Source"):
+            yield "begin", "block-for-in"
+            for obj in parse_ast(source).generate(include_pass=False): yield obj
+            yield "end", "block-for-in"
 
 class Switch(ASTPython):
     def generate(self, **kwargs):
@@ -367,7 +390,7 @@ class With(ASTPython):
     def generate(self, **kwargs):
         key = "%02x" % random.randint(0,255)
         name = "w%s_obj" % key
-        yield "debug", "WITH: %s" % key
+        #yield "debug", "WITH: %s" % key
         variable, source = [ obj for obj in self.elem ]
         var_expr = []
         for dtype, data in parse_ast(variable).generate(isolate = False):
@@ -491,6 +514,26 @@ class InstructionCall(ASTPython):
                 arguments.append(" ".join(expr))
         yield "line", " ".join(arguments)
 
+class Instruction(ASTPython):
+    def generate(self, **kwargs):
+        arguments = []
+        for n,arg in enumerate(self.elem):
+            expr = []
+            for dtype, data in parse_ast(arg).generate():
+                if dtype == "expr":
+                    expr.append(data)
+                else:
+                    yield dtype, data
+            if len(expr) == 0:
+                arguments.append("unknownarg")
+                yield "debug", "Argument %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                arguments.append(" ".join(expr))
+        if arguments:
+            yield "debug", "Instruction: Maybe parse-error. This class is only for non-understood instructions or empty ones"
+            yield "line", " ".join(arguments)
+
 class InstructionFlow(ASTPython):
     def generate(self, break_mode = False, **kwargs):
         arguments = []
@@ -542,6 +585,7 @@ class Member(ASTPython):
                 yield "debug", etree.tostring(arg)
             else:
                 arguments.append(" ".join(expr))
+        # Lectura del self.iface.__init
         if len(arguments) >= 3 and arguments[0:2] == ["self","iface"] and arguments[2].startswith("__"):
             # From: self.iface.__function()
             # to: super(className, self.iface).function()
@@ -553,6 +597,35 @@ class Member(ASTPython):
                 arguments[2] = arguments[2][2:]
                 arguments[0:2] = ["super(%s, %s)" % (classname,".".join(arguments[0:2]))]
 
+        # Lectura del self.iface.__init() al nuevo estilo yeboyebo
+        if len(arguments) >= 2 and arguments[0:1] == ["_i"] and arguments[1].startswith("__"):
+            # From: self.iface.__function()
+            # to: super(className, self.iface).function()
+            funs = self.elem.xpath("ancestor::Function")
+            if funs:
+                fun = funs[-1]
+                name_parts = fun.get("name").split("_")
+                classname = name_parts[0]
+                arguments[1] = arguments[1][2:]
+                arguments[0:1] = ["super(%s, %s)" % (classname,".".join(arguments[0:1]))]
+
+        replace_members = [
+            "length",
+            "text",
+            "join",
+            "date",
+        ]
+
+        for member in replace_members:
+            for idx,arg in enumerate(arguments):
+                if member == arg or arg.startswith(member+"("):
+
+                    part1 = arguments[:idx]
+                    try:
+                        part2 = arguments[idx+1:]
+                    except IndexError:
+                        part2 = [] # Para los que son últimos y no tienen parte adicional
+                    arguments = ["qsa(%s).%s" % (".".join(part1), arg)] + part2
         yield "expr", ".".join(arguments)
 
 class ArrayMember(ASTPython):
@@ -614,6 +687,60 @@ class Parentheses(ASTPython):
             for dtype, data in parse_ast(child).generate(isolate = False):
                 yield dtype, data
         yield "expr", ")"
+
+class Delete(ASTPython):
+    def generate(self, **kwargs):
+        yield "expr", "del"
+        for child in self.elem:
+            for dtype, data in parse_ast(child).generate(isolate = False):
+                yield dtype, data
+
+
+class OpTernary(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        """
+            Ejemplo op. ternario
+                <OpTernary>
+                    <Parentheses>
+                        <OpUnary type="LNOT"><Identifier name="codIso"/></OpUnary>
+                        <Compare type="LOR"/><Identifier name="codIso"/><Compare type="EQ"/>
+                        <Constant delim="&quot;" type="String" value=""/>
+                    </Parentheses>
+                    <Constant delim="&quot;" type="String" value="ES"/>
+                    <Identifier name="codIso"/>
+                </OpTernary>
+        """
+        if_cond = self.elem[0]
+        then_val =  self.elem[1]
+        else_val =  self.elem[2]
+        yield "expr", "(" # Por seguridad, unos paréntesis
+        for dtype, data in parse_ast(then_val).generate(): yield dtype, data
+        yield "expr", "if"
+        for dtype, data in parse_ast(if_cond).generate(): yield dtype, data
+        yield "expr", "else"
+        for dtype, data in parse_ast(else_val).generate(): yield dtype, data
+        yield "expr", ")" # Por seguridad, unos paréntesis
+
+
+class DictObject(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        yield "expr", "{"
+        for child in self.elem:
+            for dtype, data in parse_ast(child).generate():
+                yield dtype, data
+            yield "expr", "," # Como en Python la coma final la ignora, pues la ponemos.
+        yield "expr", "}"
+
+class DictElem(ASTPython):
+    def generate(self, isolate = False, **kwargs):
+        # Clave:
+        for dtype, data in parse_ast(self.elem[0]).generate():
+            yield dtype, data
+        yield "expr", ":"
+        # Valor:
+        for dtype, data in parse_ast(self.elem[1]).generate():
+            yield dtype, data
+
 
 class OpUnary(ASTPython):
     def generate(self, isolate = False, **kwargs):
@@ -756,7 +883,7 @@ def parse_ast(elem):
 
 
 def file_template(ast):
-    yield "line", "# encoding: UTF-8"
+    yield "line", "# -*- coding: utf-8 -*-"
     yield "line", "from pineboolib import qsatype"
     yield "line", "from pineboolib.qsaglobals import *"
     yield "line", "import traceback"
