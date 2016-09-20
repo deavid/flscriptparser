@@ -1,0 +1,356 @@
+#!/bin/bash
+APP_DIR=$(dirname $(realpath $0))
+
+
+SRC_PROJECT=""
+SRC_START_COMMIT=""
+SRC_END_COMMIT="HEAD"
+DST_PROJECT=$(pwd)
+DST_APPLY_COMMIT="HEAD"
+TYPE_CS=""
+TYPE_BL=""
+
+show_help() {
+    echo "  $(basename $0) [options]"
+    echo
+    echo " ## options ##"
+    echo 
+    echo " --src=FOLDER   -- sets FOLDER as the source project"
+    echo " --dst=FOLDER   -- sets FOLDER as the dest project"
+    echo " --start=COMMIT -- sets COMMIT as the source start commit"
+    echo " --end=COMMIT   -- sets COMMIT as the source end commit"
+    echo " --apply=COMMIT -- sets COMMIT as the dest apply commit"
+    echo " --help         -- shows this help message"
+    echo " --cs=(m|l|r)   -- sets the default action for Both Created"
+    echo "                   m: 2-way merge   l: use local   r: use remote"
+    echo " --bl=(b|i)     -- sets the default action for Local Deleted"
+    echo "                   b: delete        i: include remote"
+    echo
+    echo " ## examples ## "
+    echo
+    echo " Default Invocation:"
+    echo "  $(basename $0) --src=../otherprj --start=origin/base-code --end=dev-code "
+    echo
+    echo
+    
+    
+}
+
+
+process_argument() {
+    local argname="$1"
+    local value="$2"
+    
+    case $argname in
+    src) SRC_PROJECT="$value" ;;
+    dst) DST_PROJECT="$value" ;;
+    start) SRC_START_COMMIT="$value" ;;
+    end) SRC_END_COMMIT="$value" ;;
+    apply) DST_APPLY_COMMIT="$value" ;;
+    cs) TYPE_CS="$value" ;;
+    bl) TYPE_BL="$value" ;;
+    help) show_help; exit 0;;
+    *) echo "Unexpected argument '$argname'"; return 1 ;;
+    esac
+    
+    #echo "* $argname -> '$value'"
+    return 0
+}
+
+let n=0
+
+ARGS=()
+
+for arg in "$@"; do
+    let n+=1
+    if [[ $arg == --* ]] ; then
+        argname="${arg#--}"
+        value=""
+        
+        if [[ $argname == *"="* ]] ; then
+            value="${argname#*=}"
+            argname="${argname%%=*}"
+        fi
+       
+        process_argument "$argname" "$value" || exit 1
+        
+    else
+        ARGS+=( "$arg" )
+    fi
+done 
+
+let n=0
+for arg in "${ARGS[@]}"; do
+    let n+=1
+    echo "Unexpected positional argument '$arg'"
+    exit 1
+done
+
+is_valid_git_folder() {
+    local gitfolder="$1"
+    test -d "$gitfolder" || return 1
+    (
+        cd "$gitfolder" || exit 1
+        test -d ".git" || exit 1
+        local line=""
+        
+        while read line; do
+            local status="${line%% *}"
+            local filename="${line#* }"
+            case $status in
+            ??) continue ;;
+            *) echo "Modified file in working directory '$filename' ($status)"; exit 1;;
+            esac
+            # echo "*$status* '$filename'"
+        done < <(git status --porcelain 2>/dev/null)
+
+    ) || return 1
+    
+}
+LAST_VALID_COMMIT_ID=""
+LAST_VALID_COMMIT_MSG=""
+
+is_valid_git_commit() {
+    local gitfolder="$1"
+    local commit="$2"
+
+    local COMMIT_LINE=""
+    pushd "$gitfolder" || exit 1
+    [[ "$commit" ]] || exit 2
+    COMMIT_LINE=$(git log "$commit" --pretty=oneline --abbrev=8 --abbrev-commit -1 )
+    [[ $? != 0 ]] && { echo "$(pwd) git log salio con estado $? " >&2; exit 3; }
+    LAST_VALID_COMMIT_ID=${COMMIT_LINE:0:8}
+    LAST_VALID_COMMIT_MSG=${COMMIT_LINE:9}
+    popd
+
+    return $?
+}
+
+# VALIDAR --------------
+is_valid_git_folder "$SRC_PROJECT" || {
+    echo "El proyecto de origen '$SRC_PROJECT' no es valido." >&2; 
+    exit 1;
+}
+
+is_valid_git_folder "$DST_PROJECT" || {
+    echo "El proyecto de destino '$DST_PROJECT' no es valido." >&2; 
+    exit 1;
+}
+
+is_valid_git_commit "$SRC_PROJECT" "$SRC_START_COMMIT" || {
+    echo "is_valid_git_commit salio con estado $?" >&2;
+    echo "El commit inicial <$SRC_START_COMMIT> no es valido." >&2; 
+    exit 1;
+}
+echo "<$LAST_VALID_COMMIT_ID>"
+
+SRC_START_COMMIT=$LAST_VALID_COMMIT_ID
+SRC_START_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
+
+is_valid_git_commit "$SRC_PROJECT" "$SRC_END_COMMIT" || {
+    echo "is_valid_git_commit salio con estado $?" >&2;
+    echo "El commit final <$SRC_END_COMMIT> no es valido." >&2; 
+    exit 1;
+}
+SRC_END_COMMIT=$LAST_VALID_COMMIT_ID
+SRC_END_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
+
+is_valid_git_commit "$DST_PROJECT" "$DST_APPLY_COMMIT" || {
+    echo "is_valid_git_commit salio con estado $?" >&2;
+    echo "El commit a aplicar <$DST_APPLY_COMMIT> no es valido." >&2; 
+    exit 1;
+}
+DST_APPLY_COMMIT=$LAST_VALID_COMMIT_ID
+DST_APPLY_COMMIT_MSG=$LAST_VALID_COMMIT_MSG
+
+
+echo " [$SRC_START_COMMIT] - [$SRC_END_COMMIT] -> [$DST_APPLY_COMMIT]"
+
+# 1.- Calcular lista de ficheros que componen la diferencia en SRC
+
+FILE_LIST=()
+pushd "$SRC_PROJECT" >/dev/null
+IFS=$'\t'
+while read -a line; do
+    FILE_LIST+=("${line[2]}")
+    #echo "${line[2]}"
+done < <(git diff --numstat "$SRC_START_COMMIT" "$SRC_END_COMMIT")
+unset IFS
+
+TMP_FILES=()
+
+git_show() {
+    local commit="$1"
+    local src="$2"
+    local dst="$3"
+    if git show "$commit":"$src" >"$dst" 2>/dev/null 
+    then
+        TMP_FILES+=("$dst")
+    else
+        unlink "$dst"
+    fi
+    
+}
+# 2.- Para cada fichero en la diferencia, extraer las versiones BASE y REMOTE
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+    # Ojo! si el fichero ha sido creado, aparece en REMOTE pero NO aparece en BASE
+    # Ojo^2! si el fichero ha sido borrado, aparece en BASE pero NO aparece en REMOTE
+    git_show $SRC_START_COMMIT "$filename" "$DST_PROJECT/$filename.BASE$fileext"
+    git_show $SRC_END_COMMIT "$filename" "$DST_PROJECT/$filename.REMOTE$fileext"
+done
+
+
+popd  >/dev/null
+# 3.- Para cada fichero en la diferencia, extraer la versión LOCAL
+pushd "$DST_PROJECT" >/dev/null
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+
+    git_show $DST_APPLY_COMMIT "$filename" "$DST_PROJECT/$filename.LOCAL$fileext"
+done
+
+
+# 4.- Para cada fichero en la diferencia, ejecutar el 
+#     sistema de mezcla adecuado ** segun EXTENSION**
+for filename in "${FILE_LIST[@]}"; do
+    basename=$(basename "$filename")
+    if [[ $basename =~ .+\..+ ]] ; then
+        fileext=".${basename##*.}"
+    else
+        fileext="" 
+    fi
+    
+    MERGE="$filename"
+    BASE="$filename.BASE$fileext" 
+    LOCAL="$filename.LOCAL$fileext"
+    REMOTE="$filename.REMOTE$fileext"
+    
+    if test \( -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( -f "$REMOTE" \) ; then
+    
+        # MEZCLA A 3
+        #echo "EXT: $fileext;"     
+        case $fileext in 
+        .qs) flmergetool "$MERGE" "$BASE" "$LOCAL" "$REMOTE" ;;
+        .ui) cp "$LOCAL" "$MERGE"; fldesigner "$BASE" "$REMOTE" "$MERGE" ;;
+    #    mtd)
+    #    xml)
+    #    kut)
+    #    qry)
+        *)  kdiff3 --auto "$BASE" "$LOCAL" "$REMOTE" -o "$MERGE" >/dev/null 2>&1 ;;
+        esac
+        if [[ $? == 0 ]] ; then
+            git add "$MERGE"
+        else
+            echo "Fallo en la mezcla"
+            # aqui podemos preguntar al usuario
+        fi
+    elif test \( \! -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
+        # FICHERO CREADO
+        cp "$REMOTE" "$MERGE"
+        git add "$MERGE"
+    elif test \( -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( \! -f "$REMOTE" \)  ; then
+        # FICHERO BORRADO
+        git rm "$MERGE"
+    elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( \! -f "$REMOTE" \)  ; then
+        # FICHERO BORRADO EN LOS DOS EXTREMOS
+        rm "$BASE" "$REMOTE" # igoramos realmente el fichero.
+    elif test \( \! -f "$BASE" \) -a \( -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
+        # CREACION SIMULTANEA
+        if [[ $TYPE_CS ]] ; then
+            type=$TYPE_CS
+        else
+            echo "El fichero $MERGE ha sido creado simultaneamente en ambos proyectos"
+            echo "(para recordar esta respuesta las proximas veces escriba: m* l* r*)"
+            question="Elija una opcion [(m)erge|(l)ocal|(r)emoto]: "
+            read -p "$question" answer 
+            type="${answer:0:1}"
+            [[ ${answer:1:1} == "*" ]] && TYPE_CS=$type
+        fi
+        case "$type" in
+        m) kdiff3 "$LOCAL" "$REMOTE" -o "$MERGE" >/dev/null 2>&1  ;;
+        l) cp "$LOCAL" "$MERGE" ;;
+        r) cp "$REMOTE" "$MERGE" ;;
+        *) echo "Unexpected type"; [[ "" ]] ;;
+        esac
+        if [[ $? == 0 ]] ; then
+            git add "$MERGE"
+        else
+            echo "Fallo en la mezcla"
+            # aqui podemos preguntar al usuario
+        fi
+        
+    elif test \( -f "$BASE" \) -a \( \! -f "$LOCAL" \) -a \( -f "$REMOTE" \)  ; then
+        # BORRADO LOCAL
+        if [[ $TYPE_BL ]] ; then
+            type=$TYPE_BL
+        else
+            echo "El fichero $MERGE no existe en este proyecto pero si fue modificado en el parche"
+            echo "(para recordar esta respuesta las proximas veces escriba: b* i*)"
+            question="Elija una opcion [(b)orrar|(i)ncluir]: "
+            read -p "$question" answer 
+            type="${answer:0:1}"
+            [[ ${answer:1:1} == "*" ]] && TYPE_BL=$type
+        fi
+        
+        case "${type}" in
+        b) rm "$BASE" "$REMOTE" && git rm "$MERGE" ;;
+        i) cp "$REMOTE" "$MERGE" && git add "$MERGE";;
+        *) echo "Unexpected type" ;; 
+        esac
+        
+    else
+        echo "Ha ocurrido algun error anteriormente"
+    fi
+done
+
+for f in ${TMP_FILES[@]}; do
+    unlink "$f"
+done
+
+# 5.- Para cada mezcla finalizada, añadirla al proyecto DST (git add)
+
+
+
+# 6.- Si todos los ficheros se mezclaron sin error:
+#     hacer un commit, proponer un mensaje de commit.
+GIT_MSGFILE="$DST_PROJECT/.git/GITGUI_MSG" 
+echo "patch: $SRC_START_COMMIT..$SRC_END_COMMIT > $DST_APPLY_COMMIT -- $SRC_PROJECT" > $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+echo "project: $SRC_PROJECT" >> $GIT_MSGFILE
+echo "start: $SRC_START_COMMIT $SRC_START_COMMIT_MSG" >> $GIT_MSGFILE
+echo "end: $SRC_END_COMMIT $SRC_END_COMMIT_MSG" >> $GIT_MSGFILE
+echo "applied: $DST_APPLY_COMMIT $DST_APPLY_COMMIT_MSG" >> $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+echo " -- files patched: " >> $GIT_MSGFILE
+echo "" >> $GIT_MSGFILE
+for filename in "${FILE_LIST[@]}"; do
+    echo "    $filename" >> $GIT_MSGFILE
+done
+echo "" >> $GIT_MSGFILE
+
+
+popd >/dev/null
+
+
+
+
+
+
+
+
+
+
+
+
+

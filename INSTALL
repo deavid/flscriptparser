@@ -1,0 +1,43 @@
+parser for javascript-like sources for AbanQ QtScript files.
+-------------------------------------------------------
+
+DEPENDS:
+
+- Requires python PLY to be installed.
+
+With Debian, you can install it typing:
+$ sudo apt-get install python-ply
+
+RUNNING LOCALLY:
+
+Start up the script "flscriptparser" from the ./test/ folder
+
+INSTALL:
+
+You should create a symbolic link of ./test/flscriptparser to a folder inside
+something in your PATH. For example:
+
+ln -s /path/to/project/flscriptparser/test/flscriptparser \
+  /usr/local/bin/flscriptparser
+
+
+USE:
+
+flscriptparser [file1.qs] [file2.qs] [file3.qs] [..]
+
+Run flscriptparser without arguments to parse all files named *.qs in the 
+current folder. If there are arguments, these are treated as files to parse.
+
+It generates, for each input file, one output named .parse-filename.qs.log
+where filename.qs is the filename for the file that you are trying to parse.
+
+
+KNOWN BUGS:
+
+It doesn't handle (yet) several structures, like array definitions [a,b,c] or 
+extensive use of dots and functions.
+
+* Fixed * It hangs up unexpectedly when trying to parse some files with errors. 
+(You can try to hit Ctrl-C)
+* Fixed * There are several problems if you try to pass a file with path as an argument.
+

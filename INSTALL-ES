@@ -1,0 +1,44 @@
+Parseador de Código fuente tipo Javascript para AbanQ
+-------------------------------------------------------
+
+DEPENDENCIAS:
+- python-ply
+- git-core
+- realpath
+
+flscriptparser depende únicamente del proyecto PLY de Python.
+
+En debian, puede instalarla con:
+$ sudo apt-get install python-ply
+
+EJECUCION LOCAL:
+
+Lance el programa "flscriptparser" de la carpeta ./test/
+
+INSTALACION:
+
+Debe crear un enlace simbólico de ./test/flscriptparser a una carpeta dentro de
+su PATH. Por ejemplo:
+
+ln -s /ruta/al/proyecto/flscriptparser/test/flscriptparser \
+  /usr/local/bin/flscriptparser
+
+
+USO:
+
+flscriptparser [file1.qs] [file2.qs] [file3.qs] [..]
+
+Ejecute flscriptparser sin argumentos para parsear todos los .qs de la carpeta
+en que se encuentra. Si le pasa argumentos, éste los interpretará como ficheros
+a parsear.
+
+Genera para cada fichero, una salida en .parse-filename.qs.log donde 
+filename.qs es el nombre del fichero que intentaba parsear.
+
+BUGS CONOCIDOS:
+
+Tiene problemas si se le pasan ficheros con ruta como argumento. 
+Se cuelga sin explicación al parsear algunos ficheros con errores. 
+(Pulse Control+C para seguir con el siguiente fichero en tal caso)
+
+

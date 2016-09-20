@@ -1,0 +1,5 @@
+Use this folder to debugg the parser (this avoids some trash and annoying caches with the source code).
+
+Anyway; the cache system isn't very useful because recalculating it each time is not something very expensive. 
+
+

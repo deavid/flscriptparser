@@ -1,0 +1,199 @@
+#!/bin/bash
+
+# FLMERGETOOL.
+# To add this tool to git, do the following:
+# flmergetool INSTALL
+editors=(medit kate gedit kwrite nano vim vi)
+EDITOR_FILEPATH=
+for editor in "${editors[@]}"; do
+    EDITOR_FILEPATH=$(command -v $editor) 
+    [[ $EDITOR_FILEPATH ]] && break
+done
+echo $EDITOR_FILEPATH
+
+thisprg=`realpath $0`
+thisdir=`dirname $thisprg`
+if test "$1" = "INSTALL"
+then
+    sudo ln -s $thisprg /usr/local/bin/flmergetool
+    git config --global mergetool.flmergetool.cmd \
+                        "flmergetool \$MERGED \$BASE \$LOCAL \$REMOTE"
+    git config --global mergetool.flmergetool.trustExitCode true
+    exit 0
+fi
+if [[ $1 == "--debug" ]]; then
+    DEBUG="--debug"
+    shift
+else
+    DEBUG=""
+fi
+MERGE=$1
+BASE=$2
+LOCAL=$4
+REMOTE=$3
+if test -f $LOCAL 
+then
+    OK=1
+else
+    echo "File $LOCAL does not exist."
+    exit 1
+fi
+
+if test -f $REMOTE
+then
+    OK=1
+else
+    echo "File $REMOTE does not exist."
+    exit 1
+fi
+
+if test -f $BASE 
+then
+    OK=1
+else
+    if kdiff3 $LOCAL $REMOTE -o $MERGE >/dev/null 2>&1
+    then
+        #echo "KDIFF3 OK"
+        OK=1
+        exit 0
+    else
+        echo "KDIFF3 FAILED"
+        exit 1
+    fi
+fi
+
+
+merge_other() {
+    kdiff3 "$BASE" "$LOCAL" "$REMOTE" -o "$MERGE" --auto >/dev/null 2>&1
+    return $?
+}    
+
+merge_xml() {
+    python $thisdir/xml2json.py convert "$BASE" "$LOCAL" "$REMOTE" && \
+    kdiff3 "$BASE.json" "$LOCAL.json" "$REMOTE.json" -o "$MERGE.json" --auto >/dev/null 2>&1 && \
+    python $thisdir/xml2json.py revert "$MERGE.json" && \
+    cp $MERGE.json.* $MERGE
+    for f in "$BASE" "$LOCAL" "$REMOTE" "$MERGE"; do
+        rm "$f".json "$f".json.*
+    done
+    return $?
+}    
+
+merge_qs() {
+    if echo $MERGE | grep -E '\.qs' 
+    then
+        OK=1
+    else 
+        echo "File $MERGE does not have .qs"
+        exit 1
+    fi
+
+    (
+    for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
+        is_done=1
+        until [[ $is_done == 0 ]]
+        do
+            if python $thisdir/flscriptparse.py -O file "$file1" && test -f "$file1.xml"
+            then
+                #echo "FLScriptParse OK" 
+                is_done=0
+            else
+                patched=0
+                for kpatch in /tmp/knownpatch.*; do
+                    [[ $kpatch == "/tmp/knownpatch.*" ]] && break
+                    patch "$file1" "$kpatch" -f -F4 -l && {
+                        patched=1
+                    }
+                done
+            
+                read -p "Fallo en el parseo del fichero, desea abrir un editor para corregirlo manualmente? [Y/n]:" editor
+                [[ $editor == "n" ]] && {
+                echo "FLScriptParse FAILED"
+                exit 1
+                }
+                bname=$(basename "$file1")
+                cp $file1 /tmp/$bname.orig
+                "$EDITOR_FILEPATH" "$file1"
+                read -p "Pulse Intro si ha terminado." 
+                diff -U6 -p --minimal -d /tmp/$bname.orig $file1 >/tmp/knownpatch.$bname.patch.tmp 
+                if [[ $? == 1 ]] && [[ $(wc -l  /tmp/knownpatch.$bname.patch.tmp) > 0 ]] ; then
+                    mv /tmp/knownpatch.$bname.patch.tmp /tmp/knownpatch.$bname.patch
+                else
+                    unlink /tmp/knownpatch.$bname.patch.tmp 
+                fi
+            
+            fi
+        done
+    done
+
+    
+    if python $thisdir/flpremerge.py $DEBUG $BASE $LOCAL $REMOTE 
+    then
+        #echo "FLPreMerge OK"
+        OK=1
+    else
+        echo "FLPreMerge FAILED"
+        exit 1
+    fi
+
+    if python $thisdir/flalign.py $DEBUG $BASE $LOCAL $REMOTE 
+    then
+        #echo "FLAlign OK"
+        OK=1
+    else
+        echo "FLAlign FAILED"
+        exit 1
+    fi
+
+    if test -f $BASE.aligned && test -f $LOCAL.aligned && test -f $REMOTE.aligned
+    then
+        OK=1
+    else
+        echo "FLAlign FAILED"
+        exit 1
+    fi
+    unlink $MERGE
+    #echo "kdiff3 $BASE.aligned $LOCAL.aligned $REMOTE.aligned -o $MERGE --auto"
+    if kdiff3 --auto $BASE.aligned $LOCAL.aligned $REMOTE.aligned -o $MERGE >/dev/null 2>&1
+    then
+        #echo "KDIFF3 OK"
+        OK=1
+    else
+        echo "KDIFF3 FAILED"
+        exit 1
+    fi
+    ) 
+
+    for file1 in "$BASE" "$LOCAL" "$REMOTE"; do
+        unlink "$file1.xml"
+        unlink "$file1.blocks"
+        unlink "$file1.aligned"
+        unlink "$file1.hash"
+    done
+
+
+    return $?;
+}
+
+
+
+
+
+
+if echo $MERGE | grep -E '\.qs' ; then
+    merge_qs
+    exit $?
+fi
+if echo $MERGE | grep -E '\.(xml|mtd|ui)' ; then
+    merge_xml
+    exit $?
+fi
+if echo $MERGE | grep -E '\.(kut|qry)' ; then
+    merge_other
+    exit $?
+fi
+
+print "Unknown extension."
+exit 3
+
+
