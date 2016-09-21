@@ -804,6 +804,12 @@ class Constant(ASTPython):
         value = self.elem.get("value")
         if ctype is None or value is None:
             for child in self.elem:
+                if child.tag == "list_constant":
+                    # TODO/FIXME:: list_constant debe ser ELIMINADO o CONVERTIDO por postparse.py
+                    # .... este generador convertirá todos los arrays en vacíos, sin importar
+                    # .... si realmente tienen algo.
+                    yield "expr", "[]"
+
                 if child.tag == "CallArguments":
                     arguments = []
                     for n,arg in enumerate(child):
