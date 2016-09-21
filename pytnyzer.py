@@ -10,6 +10,7 @@ from . import flscriptparse
 from lxml import etree
 from future.utils import with_metaclass
 
+
 def id_translate(name):
     python_keywords = ['and', 'del', 'for', 'is', 'raise', 'assert', 'elif',
     'from', 'lambda', 'return', 'break', 'else', 'global', 'not', 'try',
