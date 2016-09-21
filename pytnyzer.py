@@ -246,6 +246,34 @@ class While(ASTPython):
             for obj in parse_ast(source).generate(): yield obj
             yield "end", "block-while"
 
+class DoWhile(ASTPython):
+    def generate(self, **kwargs):
+        main_expr = []
+        for n,arg in enumerate(self.elem.xpath("Condition/*")):
+            expr = []
+            for dtype, data in parse_ast(arg).generate(isolate = False):
+                if dtype == "expr":
+                    expr.append(data)
+                else:
+                    yield dtype, data
+            if len(expr) == 0:
+                main_expr.append("False")
+                yield "debug", "Expression %d not understood" % n
+                yield "debug", etree.tostring(arg)
+            else:
+                main_expr.append(" ".join(expr))
+        # TODO .....
+        key = "%02x" % random.randint(0,255)
+        name1st = "s%s_dowhile_1stloop" % key
+        yield "line", "%s = True" % (name1st)
+
+        yield "line", "while %s or %s:" % (name1st, " ".join(main_expr))
+        for source in self.elem.xpath("Source"):
+            yield "begin", "block-while"
+            yield "line", "%s = False" % (name1st)
+            for obj in parse_ast(source).generate(): yield obj
+            yield "end", "block-while"
+
 class For(ASTPython):
     def generate(self, **kwargs):
         init_expr = []
