@@ -1,17 +1,27 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from builtins import input
+from builtins import str
+from builtins import range
 # -----------------------------------------------------------------------------
 # flscriptparse.py
 #
-# Simple parser for FacturaLUX SCripting Language (QSA).  
+# Simple parser for FacturaLUX SCripting Language (QSA).
 # -----------------------------------------------------------------------------
 from optparse import OptionParser
 import pprint
 import sys, math
 import hashlib
-import flex
 import ply.yacc as yacc
 import ply.lex as lex
-        
-from flclasses import *
+
+try:
+    from pineboolib.flparser import flex
+    from pineboolib.flparser.flclasses import *
+except ImportError:
+    import flex
+    from flclasses import *
 
 # Get the token map
 tokens = flex.tokens
@@ -42,14 +52,15 @@ precedence = (
 
 )
 seen_tokens = []
-
+tokelines =  {}
+last_lexspan = None
 def p_parse(token):
     '''
     exprval : constant
             | variable
             | funccall
             | error
-    
+
     identifier : ID
 
     dictobject_value : LBRACE RBRACE
@@ -57,9 +68,9 @@ def p_parse(token):
 
     dictobject_value_elemlist : dictobject_value_elem
                               | dictobject_value_elemlist COMMA dictobject_value_elem
-                                
+
     dictobject_value_elem : exprval COLON expression
-                                
+
     base_expression     : exprval
                         | inlinestoreinstruction
                         | base_expression mathoperator base_expression
@@ -71,23 +82,23 @@ def p_parse(token):
                         | ternary_operator
                         | dictobject_value
                         | typeof_operator
-                        
-                        
-                        
-                        
+
+
+
+
     parentheses         : LPAREN base_expression RPAREN
                         | LPAREN variable_1 RPAREN
-    
+
     unary_operator      : LNOT base_expression
                         | MINUS base_expression
                         | PLUS base_expression
-                    
+
     new_operator        : NEW funccall_1
                         | NEW identifier
-                        
+
     typeof_operator     : TYPEOF variable
                         | TYPEOF base_expression
-                    
+
     ternary_operator    : base_expression CONDITIONAL1 base_expression COLON base_expression
 
     expression  : base_expression
@@ -96,16 +107,16 @@ def p_parse(token):
                 | LPAREN expression RPAREN
                 | error
 
-    case_cblock_list  :  case_block  
-    case_cblock_list  :  case_cblock_list case_block  
+    case_cblock_list  :  case_block
+    case_cblock_list  :  case_cblock_list case_block
 
-    case_block  :  CASE expression COLON statement_list 
+    case_block  :  CASE expression COLON statement_list
 
     case_default    :  DEFAULT COLON statement_list
 
     case_block_list  :  empty
     case_block_list  :  case_default
-    case_block_list  :  case_cblock_list 
+    case_block_list  :  case_cblock_list
     case_block_list  :  case_cblock_list case_default
 
     source_element  : docstring
@@ -116,7 +127,7 @@ def p_parse(token):
     source  : source_element
     source  : source source_element
             | statement_list
-    
+
 
     basicsource     : statement_list
                     | empty
@@ -134,7 +145,7 @@ def p_parse(token):
 
     statement_list      : statement_list statement
 
-    statement_list      : statement 
+    statement_list      : statement
 
     statement_list      : LBRACE statement_list RBRACE
 
@@ -146,11 +157,11 @@ def p_parse(token):
 
     vardeclaration  :  VAR vardecl_list SEMI
                     |  CONST vardecl_list SEMI
-    vardeclaration  :  VAR vardecl_list 
-                    |  CONST vardecl_list 
-                    |  STATIC VAR vardecl_list 
+    vardeclaration  :  VAR vardecl_list
+                    |  CONST vardecl_list
+                    |  STATIC VAR vardecl_list
 
-    vardecl  :  ID optvartype EQUALS expression 
+    vardecl  :  ID optvartype EQUALS expression
     vardecl  :  ID optvartype
 
     vardecl_list    : vardecl
@@ -207,19 +218,19 @@ def p_parse(token):
 
     variable    : variable_1
                 | member_var
-                | LPAREN variable_1 RPAREN 
+                | LPAREN variable_1 RPAREN
                 | LPAREN member_var RPAREN
 
-    variable_1  : identifier 
+    variable_1  : identifier
                 | array_member
-    
+
     array_member : variable_1 LBRACKET expression RBRACKET
                  | funccall_1 LBRACKET expression RBRACKET
 
-    inlinestoreinstruction  : PLUSPLUS variable 
-                            | MINUSMINUS variable 
-                            | variable PLUSPLUS 
-                            | variable MINUSMINUS 
+    inlinestoreinstruction  : PLUSPLUS variable
+                            | MINUSMINUS variable
+                            | variable PLUSPLUS
+                            | variable MINUSMINUS
 
         updateoperator : EQUALS
                        | PLUSEQUAL
@@ -227,39 +238,39 @@ def p_parse(token):
                        | MODEQUAL
                        | DIVEQUAL
                        | TIMESEQUAL
-        
+
         updateinstruction : variable updateoperator expression
                           | variable updateoperator updateinstruction
 
-        deleteinstruction   : DELETE variable        
+        deleteinstruction   : DELETE variable
 
         storeinstruction    : inlinestoreinstruction
                             | updateinstruction
                             | deleteinstruction
-            
 
-    flowinstruction : RETURN expression 
-                    | THROW expression 
-                    | RETURN 
-                    | BREAK 
-                    | CONTINUE 
+
+    flowinstruction : RETURN expression
+                    | THROW expression
+                    | RETURN
+                    | BREAK
+                    | CONTINUE
 
     instruction : base_instruction SEMI
                 | SEMI
-                | base_instruction 
+                | base_instruction
                 | funcdeclaration
                 | error SEMI
-                
+
     callinstruction : funccall
                     | variable
-    
+
     base_instruction : storeinstruction
                 | callinstruction
-                | flowinstruction 
+                | flowinstruction
 
     varorcall : variable
               | funccall
-              | base_expression            
+              | base_expression
 
     optextends  : EXTENDS ID
                 | empty
@@ -285,13 +296,13 @@ def p_parse(token):
                 | SCONST
                 | regex
                 | list_constant
-              
+
     regex : DIVIDE regexbody DIVIDE regexflags
           | DIVIDE regexbody COMMENTCLOSE regexflags
-                  
+
     regexbody   : regexchar
                 | regexbody regexchar
-   
+
     regexchar :  LPAREN
               | RPAREN
               | ID
@@ -310,10 +321,10 @@ def p_parse(token):
               | BACKSLASH
               | SCONST
               | error
-              
+
     regexflags : ID
                | empty
-              
+
 
     statement_block : statement
                     | LBRACE statement_list RBRACE
@@ -336,14 +347,14 @@ def p_parse(token):
                     | LAND
 
     condition   : expression
-                | error 
+                | error
 
     ifstatement : IF LPAREN condition RPAREN statement_block optelse
 
-    whilestatement  : WHILE LPAREN condition RPAREN statement_block 
+    whilestatement  : WHILE LPAREN condition RPAREN statement_block
     dowhilestatement  : DO statement_block WHILE LPAREN condition RPAREN SEMI
 
-    withstatement   : WITH LPAREN variable RPAREN statement_block 
+    withstatement   : WITH LPAREN variable RPAREN statement_block
                     | error
 
     storeormember   : storeinstruction
@@ -353,20 +364,20 @@ def p_parse(token):
                     | VAR vardecl
                     | for_initialize COMMA for_initialize
                     | empty
-                    
+
     for_compare     : expression
                     | empty
-    
+
     for_increment   : storeormember
                     | for_increment COMMA for_increment
                     | empty
-    
-    
-    forstatement    : FOR LPAREN for_initialize SEMI for_compare SEMI for_increment RPAREN statement_block 
+
+
+    forstatement    : FOR LPAREN for_initialize SEMI for_compare SEMI for_increment RPAREN statement_block
                     | error
 
-    forinstatement  : FOR LPAREN for_initialize IN varorcall RPAREN statement_block 
-                    | FOR LPAREN variable IN varorcall RPAREN statement_block 
+    forinstatement  : FOR LPAREN for_initialize IN varorcall RPAREN statement_block
+                    | FOR LPAREN variable IN varorcall RPAREN statement_block
                     | error
 
     switch  : SWITCH LPAREN condition RPAREN LBRACE case_block_list RBRACE
@@ -376,45 +387,52 @@ def p_parse(token):
 
     trycatch    : TRY statement_block CATCH LPAREN optid RPAREN statement_block
 
-    empty : 
+    empty :
     '''
     global input_data
-    
+
     lexspan = list(token.lexspan(0))
     data = str(token.lexer.lexdata[lexspan[0]:lexspan[1]])
     if len(lexspan) == 2:
         fromline = token.lineno(0)
-        global endoffile 
+        global endoffile
         endoffile = fromline, lexspan, token.slice[0]
         #print fromline, lexspan, token.slice[0]
-    token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] } 
+    token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] }
     numelems = len([ s for s in token.slice[1:] if s.type != 'empty' and s.value is not None ])
+
     rspan = lexspan[0]
     if str(token.slice[0]) == 'empty' or numelems == 0: token[0] = None
     else:
         rvalues = []
-        for n,s in enumerate(token.slice[1:]): 
+        for n,s in enumerate(token.slice[1:]):
             if s.type != 'empty' and s.value is not None:
                 val = None
-                if isinstance(s.value,basestring): 
+                if isinstance(s.value,str):
                     val = token.lexspan(n+1)[0] + len(s.value) - 1
                 else:
                     val = token.lexspan(n+1)[1]
                 rvalues.append(val)
         rspan = max(rvalues)
     lexspan[1] = rspan
-    
+
     if str(token.slice[0]) == 'regexbody':
-        token[0] = { "02-size" : lexspan,  "50-contents" :  input_data[lexspan[0]:lexspan[1]+1] } 
-        
-    #if str(token.slice[0]) == 'regex': 
-    #    print "\r\n",str(token.slice[0]) ,":" , input_data[lexspan[0]:lexspan[1]+1] 
+        token[0] = { "02-size" : lexspan,  "50-contents" :  input_data[lexspan[0]:lexspan[1]+1] }
+
+    #if str(token.slice[0]) == 'regex':
+    #    print "\r\n",str(token.slice[0]) ,":" , input_data[lexspan[0]:lexspan[1]+1]
     #    print "      " + "\n      ".join([ "%s(%r): %r" % (s.type, token.lexspan(n+1), s.value) for n,s in enumerate(token.slice[1:]) ])
     global seen_tokens, last_ok_token
     last_ok_token = token
     seen_tokens.append((str(token.slice[0]), token.lineno(0),input_data[lexspan[0]:lexspan[1]+1] ))
     global ok_count
     ok_count += 1
+    if lexspan[0] not in tokelines:
+        tokelines[lexspan[0]] = token.lexer.lineno
+    global last_lexspan
+    last_lexspan = lexspan
+
+
 
 last_ok_token = None
 error_count = 0
@@ -434,14 +452,16 @@ def p_error(t):
             if abs(last_error_line -  t.lineno) > 4 and ok_count > 1 and error_count < 4:
                 error_count += 1
                 try: print_context(t)
-                except: pass
+                except Exception: pass
                 if debug == True:
                     error_count += 20 # no imprimir mas de un error en debug.
                     print
+                    for tokname, tokln, tokdata in seen_tokens[-32:]:
+                        if tokln ==  t.lineno:
+                            print(tokname, tokdata)
+                    print(repr(last_ok_token[0]))
                     for s in last_ok_token.slice[:]:
-                        print ">>>" ,  s.lineno, repr(s), pprint.pformat(s.value,depth=3)
-                    #print "LAST TOKEN:"
-                    #print pprint.pformat(last_ok_token[0],depth=10)
+                        print(">>>" ,  s.lineno, repr(s), pprint.pformat(s.value,depth=3))
                 last_error_line = t.lineno
             elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno
@@ -451,23 +471,29 @@ def p_error(t):
 
     ok_count = 0
     if t is None:
-        if last_error_token != "EOF": 
-            print "ERROR: End of the file reached."
-            global endoffile 
-            print "Last data:", endoffile
-            
+        if last_error_token != "EOF":
+            print("ERROR: End of the file reached.")
+            global endoffile
+            print("Last data:", endoffile)
+
+            if last_lexspan:
+                try:
+                    print("HINT: Last lexspan:", last_lexspan)
+                    print("HINT: Last line:", tokelines[last_lexspan[0]])
+                except Exception as e:
+                    print("ERROR:", e)
         last_error_token = "EOF"
         return t
-    t = parser.token() 
+    t = parser.token()
     parser.restart()
     last_error_token = t
     return t
-        
-    
+
+
 # Build the grammar
 
 
-parser = yacc.yacc(method='LALR',debug=0, 
+parser = yacc.yacc(method='LALR',debug=0,
       optimize = 1, write_tables = 1, debugfile = '/tmp/yaccdebug.txt',outputdir='/tmp/')
 
 #profile.run("yacc.yacc(method='LALR')")
@@ -485,32 +511,32 @@ def print_context(token):
         column1 = (token.lexpos - last_cr)
         last_cr = input_data.rfind('\n',0,last_cr-1)
 
-    print input_data[last_cr:next_cr].replace("\t"," ")
-    print (" " * (column-1)) + "^", column, "#ERROR#" , token
-    
-    
+    print(input_data[last_cr:next_cr].replace("\t"," "))
+    print((" " * (column-1)) + "^", column, "#ERROR#" , token)
+
+
 def my_tokenfunc(*args, **kwargs):
-    #print "Call token:" ,args, kwargs
-    ret = lex.lexer.token(*args, **kwargs)    
+    #print("Call token:" ,args, kwargs)
+    ret = lex.lexer.token(*args, **kwargs)
     #print "Return (",args, kwargs,") = " , ret
     return ret
 
 
 def print_tokentree(token, depth = 0):
-    print "  " * depth, token.__class__ , "=" , token
-    
+    print("  " * depth, token.__class__ , "=" , token)
+
     if str(token.__class__) == "ply.yacc.YaccProduction":
-        print token.lexer
-        for tk in token.slice:    
+        print(token.lexer)
+        for tk in token.slice:
             if tk.value == token: continue
-            print "  " * (depth+1), tk.type, 
+            print("  " * (depth+1), tk.type, end=' ')
             try:
-                print tk.lexpos, 
-                print tk.endlexpos,
+                print(tk.lexpos, end=' ')
+                print(tk.endlexpos, end=' ')
             except:
                 pass
-            print 
-            
+            print()
+
             print_tokentree(tk.value, depth +1)
 
 def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
@@ -524,11 +550,11 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
         'vardecl_list',
     ]
     final_obj = {}
-    final_obj['range'] = obj['02-size'] 
+    final_obj['range'] = obj['02-size']
     has_data = 0
     has_objects = 0
     contentlist = []
-    
+
     if alias_mode == 0:
         ctype_alias = {}
     elif alias_mode == 1:
@@ -541,11 +567,11 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
             "storeequalinstruction" : "instruction",
             "vardecl" : "vardeclaration",
             #"vardecl_list" : "vardeclaration",
-        
+
         }
     else:
-        raise ValueError, "alias_mode unknown"
-        
+        raise ValueError("alias_mode unknown")
+
     if otype in ctype_alias:
         otype = ctype_alias[otype]
     #print " " * depth , obj['02-size']
@@ -559,7 +585,7 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
         #    print_tree(value,depth,num)
         #    continue
         #print " " * depth , "%s:" % ".".join(num+[str(n)]), ctype,
-        
+
         if type(value) is dict:
             #print "*"
             if depth < 600:
@@ -582,9 +608,9 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
     final_obj['content'] = contentlist
     final_obj['has_data'] = has_data
     final_obj['has_objects'] = has_objects
-    
+
     return final_obj
-    
+
 
 hashes = []
 ranges = []
@@ -593,7 +619,7 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
     if depth == 0:
         hashes = []
         ranges = []
-        
+
     sep = "    "
     marginblocks = {
         "classdeclaration" : 1,
@@ -610,31 +636,33 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
     nuevalinea = False
     name = ""
     lines = []
-    
-        
-    
+    l = 0
+
+
     for ctype, value in tree['content']:
         if nuevalinea and ctype in closingtokens:
             nuevalinea = False
-        
-        if nuevalinea: 
-            for i in range(int(math.ceil(l/2.0))): lines.append(sep * depth)
+
+        if nuevalinea:
+            for i in range(int(math.ceil(l/2.0))):
+                lines.append(sep * depth)
             nuevalinea = False
-            
+
         if type(value) is dict and ctype == otype:
             tname,tlines,trange = printtree(value, depth, ctype)
             if name == "" and tname:
                 name = tname
-                
+
             lines += tlines
         elif type(value) is dict:
             l = 0
             if ctype in marginblocks: l = marginblocks[ctype]
-                
-            for i in range(int(math.floor(l/2.0))): lines.append(sep * depth)
+
+            for i in range(int(math.floor(l/2.0))):
+                lines.append(sep * depth)
             tname,tlines,trange = printtree(value, depth+1, ctype)
             # lines.append(sep * depth + "<!-- %d -->" % (len("".join(tlines))))
-            
+
             if value['has_data'] > 0 and value['has_objects'] == 0 and False:
                 # Do it inline!
                 if value['has_data']==1 and tname:
@@ -646,23 +674,23 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
                 attrs = []
                 if tname:
                     attrs.append(("id",tname))
-                
+
                 txtinline = "".join([ line.strip() for line in tlines ])
-                    
+
                 #if len(tlines)>1:
                 txthash = hashlib.sha1(txtinline).hexdigest()[:16]
-                #hashes.append(("depth:",depth,"hash:",txthash,"element:",ctype+":"+tname)) 
-                hashes.append((txthash,ctype+":"+tname+"(%d)"% len(txtinline))) 
+                #hashes.append(("depth:",depth,"hash:",txthash,"element:",ctype+":"+tname))
+                hashes.append((txthash,ctype+":"+tname+"(%d)"% len(txtinline)))
                 ranges.append([depth,txthash]+trange+[ctype+":"+tname,len(txtinline)])
                 #,"start:",trange[0],"end:",trange[1]))
                 #attrs.append(("start",trange[0]))
                 #attrs.append(("end",trange[1]))
                 #attrs.append(("hash",txthash))
-                    
+
                 txtattrs=""
                 for name1, val1 in attrs:
                     txtattrs+=" %s=\"%s\"" % (name1,cnvrt(val1))
-                    
+
                 lines.append(sep * depth + "<%s%s>" % (ctype,txtattrs))
                 if depth > 50:
                     lines.append(sep * (depth+1) + "...")
@@ -674,7 +702,7 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
                 if txtattrs:
                     txtattrs = "<!--%s -->" % txtattrs
                 lines.append(sep * depth + "</%s>" % (ctype))
-                    
+
                 nuevalinea = True
         else:
             if ctype == "ID" and name == "":
@@ -683,8 +711,8 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
                 lines.append(sep * depth +   "<%s value=\"%s\" />" % (ctype,cnvrt(value)))
             else:
                 lines.append(sep * depth +  "<%s />" % (ctype))
-                
-        
+
+
     if mode == "hash":
         #print "\n".join(lines)
         for row in sorted(ranges):
@@ -696,9 +724,9 @@ def printtree(tree, depth = 0, otype = "source", mode = None, output = sys.stdou
             output.write(row)
             output.write("\n")
             output.flush()
-    
+
     return name, lines, tree['range']
-        
+
 
 
 def parse(data):
@@ -712,15 +740,15 @@ def parse(data):
     error_count = 0
     p = parser.parse(data, debug = 0, tracking = 1, tokenfunc = my_tokenfunc)
     if error_count > 0:
-        print "ERRORS (%d)" % error_count
+        print("ERRORS (%d)" % error_count)
     if p is None: return p
     try:
         p["error_count"] = error_count
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return None
-        
-    if parser.error: 
+
+    if parser.error:
         return None
     return p
 
@@ -741,26 +769,26 @@ def main():
     parser.add_option("--optdebug",
                     action="store_true", dest="optdebug", default=False,
                     help="debug optparse module")
-                    
+
     parser.add_option("--debug",
                     action="store_true", dest="debug", default=False,
                     help="prints lots of useless messages")
-                    
+
 
     (options, args) = parser.parse_args()
     if options.optdebug:
-        print options, args
+        print(options, args)
     if options.start:
         start = options.start
-        print "Start setted to:" , start
-        
+        print("Start setted to:" , start)
+
 
 
 
     def do_it():
-        if options.output == "none": return 
+        if options.output == "none": return
         tree_data = calctree(prog)
-        if options.output == "hash":    
+        if options.output == "hash":
             printtree(tree_data, mode = "hash")
         elif options.output == "xml":
             printtree(tree_data, mode = "xml")
@@ -768,56 +796,56 @@ def main():
             f1_hash = open(filename+".hash","w")
             printtree(tree_data, mode = "hash", output = f1_hash)
             f1_hash.close()
-            
+
             f1_xml = open(filename+".xml","w")
             printtree(tree_data, mode = "xml", output = f1_xml)
             f1_xml.close()
         elif options.output == "yaml":
             import yaml
-            print yaml.dump(tree_data['content'])
-            
+            print(yaml.dump(tree_data['content']))
+
         else:
-            print "Unknown outputmode", options.output
+            print("Unknown outputmode", options.output)
 
     prog = "$$$"
-    if len(args) > 0 :                               
+    if len(args) > 0 :
         for filename in args:
             fs = filename.split("/")
             sys.stderr.write("Loading %s ..." % fs[-1])
             sys.stderr.flush()
-            data = open(filename).read()                  
+            data = open(filename).read()
             sys.stderr.write(" parsing ...")
             sys.stderr.flush()
-            prog = parse(data)                      
+            prog = parse(data)
             sys.stderr.write(" formatting ...")
             sys.stderr.flush()
             if prog: do_it()
             sys.stderr.write(" Done.\n")
             sys.stderr.flush()
-        
+
     else:
 
 
         line = ""
         while 1:
             try:
-                line1 = raw_input("flscript> ")
+                line1 = input("flscript> ")
                 if line1.startswith("#"):
                     comm = line1[1:].split(" ")
                     if comm[0] == "setstart":
                         start = comm[1]
-                        print "Start setted to:" , start
+                        print("Start setted to:" , start)
                     if comm[0] == "parse":
-                        print
-                        prog = parse(line)     
+                        print()
+                        prog = parse(line)
                         line = ""
                 else:
                     line += line1
-            except EOFError:                
+            except EOFError:
                 break;
-            line += "\n"                    
-        print
-        prog = parse(line)     
+            line += "\n"
+        print()
+        prog = parse(line)
         do_it()
     """
     import yaml
@@ -832,9 +860,9 @@ def main():
     #for varName in prog.byDefName:
     #    var = prog.byDefName[varName]
     #    print "%-15s / %-15s > " % var.type  , varName
-    
 
-    #import tests.ifaceclass 
+
+    #import tests.ifaceclass
     #tests.ifaceclass.do_test(prog)
 
 

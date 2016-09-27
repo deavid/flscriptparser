@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+from builtins import object
 try:
     from json import dumps as json_dumps
     from json import loads as json_loads
@@ -16,12 +18,12 @@ from optparse import OptionParser
 
 def printr(*args):
     return
-    print args[0],
+    print(args[0], end=' ')
     for arg in args[1:]:
-        if type(arg) is unicode:
+        if type(arg) is str:
             arg=arg.encode("utf-8")
-        print repr(arg),
-    print
+        print(repr(arg), end=' ')
+    print()
 
 def entity_rep(txt,entities=""):
     entity_list = list("&'\"<>")
@@ -42,7 +44,7 @@ def entity_rep(txt,entities=""):
         txt = txt.replace(entity,entity_dict[entity])
     return txt
 
-class xmlElement:
+class xmlElement(object):
     def __init__(self, parent, tagname, attrs = {}, ttype = "text", tdata = ""):
         self.parent = parent
             
@@ -67,7 +69,7 @@ class xmlElement:
     def export(self,encoding):
         depth = self.depth
         tagname = self.tagname
-        attrs = [ [k,v] for k,v in self.attrs.iteritems() ]
+        attrs = [ [k,v] for k,v in self.attrs.items() ]
         attrs.sort()
         tdata = self.tdata.strip()
         ttype = self.ttype
@@ -86,7 +88,7 @@ class xmlElement:
 
     def exportXML(self):
         if type(self.attrs) is dict:
-            attrs = [ [k,v] for k,v in self.attrs.iteritems() ]
+            attrs = [ [k,v] for k,v in self.attrs.items() ]
             attrs.sort()
         else:
             attrs = self.attrs
@@ -130,7 +132,7 @@ class xmlElement:
         
         
 
-class JSON_Base:
+class JSON_Base(object):
     def __init__(self, finput, foutput, encoding):
         self.finput = finput
         self.foutput = foutput
@@ -139,7 +141,7 @@ class JSON_Base:
         self.init_vars()
         
     def process(self):
-        print "Please define a process function."
+        print("Please define a process function.")
         
     def init_vars(self):
         pass
@@ -156,12 +158,12 @@ class JSON_Reverter(JSON_Base):
             if self.encoding != "auto":
                 self.encoding = self.encoding.upper()
                 if val.upper() != self.encoding:
-                    print " ignoring %s=%s , using specified value '%s' instead" % (key,val,self.encoding)
+                    print(" ignoring %s=%s , using specified value '%s' instead" % (key,val,self.encoding))
                 return
             self.encoding = val.upper()
             return
             
-        print "ERROR: unknown key %s='%s'" % (key,val)
+        print("ERROR: unknown key %s='%s'" % (key,val))
         
     def newElement(self,depth,tagname,text,ttype,attrs):
         parent = self.cElement
@@ -198,13 +200,13 @@ class JSON_Reverter(JSON_Base):
             for field in fields[1:]:
                 tpos = field.find(":")
                 if tpos == -1: 
-                    print "unexpected character:", line
+                    print("unexpected character:", line)
                     return
                 ftype = field[:tpos]
                 try:
                     fvalue = json_loads(field[tpos+1:])
                 except ValueError:
-                    print "ValueError:", field[tpos+1:]
+                    print("ValueError:", field[tpos+1:])
                     
                 #if type(fvalue) is unicode:
                 #    self.foutput.write("%s = %s\n" % (ftype, fvalue.encode(self.encoding)))
@@ -552,7 +554,7 @@ def autodetectXmlEncoding(rawtext):
         encoding = dictEncoding["encoding"]
         return encoding
     except ImportError:
-        print "python-chardet library is not installed. Assuming input file is UTF-8."
+        print("python-chardet library is not installed. Assuming input file is UTF-8.")
     #encoding=
     #UTF-8, UTF-16, ISO-8859-1 
 
@@ -580,10 +582,10 @@ def main():
                     
     (options, args) = parser.parse_args()
     if options.optdebug:
-        print options, args
+        print(options, args)
     if len(args) < 2:
-        print "xml2json needs at least an action and a file."
-        print "xml2json (revert|convert) file1 [file2] [file3]"
+        print("xml2json needs at least an action and a file.")
+        print("xml2json (revert|convert) file1 [file2] [file3]")
         return
     action = args.pop(0)
     
@@ -619,7 +621,7 @@ def main():
             fhandler.close()
         
     else:
-        print "Unkown action '%s'" % action
+        print("Unkown action '%s'" % action)
 
 
 

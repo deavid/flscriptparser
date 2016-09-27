@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import str
 import xml.parsers.expat
 import sys
 from optparse import OptionParser
@@ -19,7 +21,7 @@ def reset():
 # 3 handler functions
 def start_element(name, attrs):
     global elements, show_end, lstelements, lasttextdata 
-    lstattrs=list(sorted([ "%s=%s" % (k,v) for k,v in attrs.iteritems() ]))
+    lstattrs=list(sorted([ "%s=%s" % (k,v) for k,v in attrs.items() ]))
     completename=name
     if len(lstattrs):
         completename+="&"+"&".join(lstattrs)
@@ -68,8 +70,8 @@ def unmap(lines):
         if line[-1] == ";": continue
         rg1 = runmap.match(line)
         if not rg1:  
-            print "error:"
-            print line
+            print("error:")
+            print(line)
             break
         
         depth = len(rg1.group('depth'))
@@ -110,8 +112,8 @@ def unmap(lines):
                 
             
         else:
-            print "error:"
-            print depth, len(elementpool)
+            print("error:")
+            print(depth, len(elementpool))
             break
             
     while len(elementpool):
@@ -141,10 +143,10 @@ def main():
                     
     (options, args) = parser.parse_args()
     if options.optdebug:
-        print options, args
+        print(options, args)
     if len(args) < 2:
-        print "Se necesita al menos una accion y un argumento extra."
-        print "xmlparse (map|unmap) file1 [file2] [file3]"
+        print("Se necesita al menos una accion y un argumento extra.")
+        print("xmlparse (map|unmap) file1 [file2] [file3]")
         return
     action = args.pop(0)
     
@@ -192,7 +194,7 @@ def main():
             fhandler.close()
         
     else:
-        print "Unkown action '%s'" % action
+        print("Unkown action '%s'" % action)
 
 
 if __name__ == "__main__": main()
