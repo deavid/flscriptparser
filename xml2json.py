@@ -416,9 +416,9 @@ class JSON_Converter(JSON_Base):
         
     def process(self):
         self.p.ParseFile(self.finput)
-        self.foutput.write("!encoding: "+ self.real_encoding+"\n")
+        self.foutput.write(b"!encoding: "+ bytes(self.real_encoding, "UTF-8")+b"\n")
         for tag in self.taglist:
-            self.foutput.write(tag.export(self.real_encoding)+"\n")
+            self.foutput.write(tag.export(self.real_encoding)+b"\n")
     
     def startTag(self,*args):
         newtag = xmlElement(self.xmltag, *args)
@@ -519,32 +519,32 @@ class JSON_Converter(JSON_Base):
 
 
 def autodetectXmlEncoding(rawtext):
-    lines = [ line.strip() for line in rawtext.split("\n") if line.strip() ]
-    if lines[0].find("<!DOCTYPE UI>")>=0:
+    lines = [ line.strip() for line in rawtext.split(b"\n") if line.strip() ]
+    if lines[0].find(b"<!DOCTYPE UI>")>=0:
         # File is QtDesigner UI 
         return "UTF-8"
         
-    if lines[0].find("UTF-8")>=0:
+    if lines[0].find(b"UTF-8")>=0:
         # Unkown, standard xml (like jrxml)
         return "UTF-8"
         
-    if lines[0].find("<ACTIONS>")>=0:
+    if lines[0].find(b"<ACTIONS>")>=0:
         # AbanQ actions XML
         return "ISO-8859-15"
         
-    if lines[0].find("<!DOCTYPE TMD>")>=0:
+    if lines[0].find(b"<!DOCTYPE TMD>")>=0:
         # AbanQ table MTD
         return "ISO-8859-15"
 
-    if lines[0].find("<!DOCTYPE QRY>")>=0:
+    if lines[0].find(b"<!DOCTYPE QRY>")>=0:
         # AbanQ report Query
         return "ISO-8859-15"
 
-    if lines[0].find('<!DOCTYPE KugarTemplate SYSTEM "kugartemplate.dtd">')>=0:
+    if lines[0].find(b'<!DOCTYPE KugarTemplate SYSTEM "kugartemplate.dtd">')>=0:
         # AbanQ report Kut
         return "ISO-8859-15"
         
-    if lines[0].find("<!DOCTYPE TS>")>=0:
+    if lines[0].find(b"<!DOCTYPE TS>")>=0:
         # AbanQ translations
         return "ISO-8859-15"
 
@@ -592,8 +592,8 @@ def main():
     if action == "convert":
         for fname in args:
             
-            fhandler = open(fname)
-            fw = open(fname+".json","w")
+            fhandler = open(fname,"rb")
+            fw = open(fname+".json","wb")
             rawtext = fhandler.read()
             fhandler.seek(0)
             if options.encoding == "auto":
