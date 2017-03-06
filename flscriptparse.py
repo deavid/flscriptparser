@@ -319,6 +319,9 @@ def p_parse(token):
               | SQOUTE
               | DQOUTE
               | BACKSLASH
+              | CONDITIONAL1
+              | EQUALS
+              | OR
               | SCONST
               | error
 
