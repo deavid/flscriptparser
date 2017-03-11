@@ -1,3 +1,6 @@
-python-ply
+python3-ply
+python3-lxml
+python3-six
+python3-future
 git-core
 realpath
