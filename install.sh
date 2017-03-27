@@ -16,3 +16,7 @@ while read line; do
     test -h /usr/local/bin/$bname && unlink /usr/local/bin/$bname
     ln -s "$line" /usr/local/bin/$bname
 done < <(find $(pwd) -executable -type f \! -path "*/.*")
+test -f /usr/local/bin/flscriptparser && unlink /usr/local/bin/flscriptparser
+
+exit 0
+
