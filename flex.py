@@ -168,7 +168,7 @@ t_FCONST = r'((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
 t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
 
 # Character constant 'c' or L'c'
-t_CCONST = r'\'([^\\\n]|(\\.))*?\''
+t_CCONST = r'\'([^\'\\\n]|(\\.)|\\\n)*?\''
 
 # REGEX constant
 #t_RXCONST = r'/[^/ ]+/g?'

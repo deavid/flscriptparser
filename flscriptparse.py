@@ -318,6 +318,7 @@ def p_parse(token):
               | DOLLAR
               | SQOUTE
               | DQOUTE
+              | PERIOD
               | BACKSLASH
               | CONDITIONAL1
               | EQUALS
