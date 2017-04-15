@@ -552,7 +552,12 @@ def execute(options, args):
             bname = os.path.basename(filename)
             sys.stdout.write("Parsing File: %-35s . . . .        (%.1f%%)    " % (bname,100.0*(nf+1.0)/nfs))
             sys.stdout.flush();
-            prog = flscriptparse.parse(open(filename,"r", encoding="latin-1").read())
+            try:
+                filecontent = open(filename,"r", encoding="latin-1").read()
+            except Exception as e:
+                print("Error: No se pudo abrir fichero %-35s          \n" % (repr(filename)), e)
+                continue
+            prog = flscriptparse.parse(filecontent)
             sys.stdout.write("\r");
             if not prog:
                 print("Error: No se pudo abrir %-35s          \n" % (repr(filename)))

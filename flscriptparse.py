@@ -10,7 +10,7 @@ from builtins import range
 # Simple parser for FacturaLUX SCripting Language (QSA).
 # -----------------------------------------------------------------------------
 from optparse import OptionParser
-
+import pprint
 import sys, math
 import hashlib
 import ply.yacc as yacc
@@ -103,6 +103,8 @@ def p_parse(token):
 
     expression  : base_expression
                 | funcdeclaration_anon
+                | funcdeclaration_anon_exec
+                | LPAREN expression RPAREN
                 | error
 
     case_cblock_list  :  case_block
@@ -171,6 +173,9 @@ def p_parse(token):
     funcdeclaration : FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     funcdeclaration : STATIC FUNCTION ID LPAREN arglist RPAREN optvartype LBRACE basicsource RBRACE
     funcdeclaration_anon : FUNCTION LPAREN arglist RPAREN LBRACE basicsource RBRACE
+                         | FUNCTION LPAREN RPAREN LBRACE basicsource RBRACE
+    funcdeclaration_anon_exec : funcdeclaration_anon LPAREN RPAREN
+                              | funcdeclaration_anon LPAREN arglist RPAREN
 
     callarg     : expression
 
@@ -313,7 +318,11 @@ def p_parse(token):
               | DOLLAR
               | SQOUTE
               | DQOUTE
+              | PERIOD
               | BACKSLASH
+              | CONDITIONAL1
+              | EQUALS
+              | OR
               | SCONST
               | error
 
@@ -449,10 +458,14 @@ def p_error(t):
                 try: print_context(t)
                 except Exception: pass
                 if debug == True:
+                    error_count += 20 # no imprimir mas de un error en debug.
+                    print
                     for tokname, tokln, tokdata in seen_tokens[-32:]:
                         if tokln ==  t.lineno:
                             print(tokname, tokdata)
                     print(repr(last_ok_token[0]))
+                    for s in last_ok_token.slice[:]:
+                        print(">>>" ,  s.lineno, repr(s), pprint.pformat(s.value,depth=3))
                 last_error_line = t.lineno
             elif abs(last_error_line -  t.lineno) > 1 and ok_count > 1:
                 last_error_line = t.lineno

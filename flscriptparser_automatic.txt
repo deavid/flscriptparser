@@ -1,0 +1,16 @@
+analisis completo:
+git ls-files -- *.qs | xargs -t -P8 -IARG -n1 bash -c "eneboo-mergetool file-check qs-classes ARG >ARG.err  2>&1"; find * -iname "*err" -empty -delete
+
+analisis de los antiguos errores:
+git ls-files -- *.qs | xargs -t -P8 -IARG -n1 bash -c "test -f ARG.err && eneboo-mergetool file-check qs-classes ARG >ARG.err 2>&1"; find * -iname "*err" -empty -delete
+
+lectura del analisis resumido:
+grep -vE "(no corresponde|>>function |clase ifaceCtx|no heredó iface|para diferentes clases|más abajo en el código)" $(find * -iname "*err" )
+
+
+limpiar:
+git clean -fx -- "*.qs.err"
+
+
+auto-corregir "asumiendo class_definition": (PELIGROSO!!)
+grep -h "asum" $(find * -iname "*err" ) | awk 'BEGIN { FS = " " } ; { print $16 "\t" $7 " " $8 "\t" $20 " " $21 }' | sed 's/[@\)]/ /g' | sed 's/:/\t/g' | awk '{ print "sed -i '"'"'" $2-3 "," $2+3 "s/" $3 " " $4 "/" $5 " " $6 "/g'"'"' " $1 }'
