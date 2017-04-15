@@ -14,7 +14,7 @@ from future.utils import with_metaclass
 def id_translate(name):
     python_keywords = ['and', 'del', 'for', 'is', 'raise', 'assert', 'elif',
     'from', 'lambda', 'return', 'break', 'else', 'global', 'not', 'try',
-    'class', 'except', 'if', 'or', 'while', 'continue',
+    'class', 'except', 'if', 'or', 'while', 'continue', 'from',
     'exec', 'import', 'pass', 'yield', 'def', 'finally', 'in', 'print']
     if name in python_keywords: return name + "_"
     if name == "false": name = "False"
@@ -441,7 +441,7 @@ class With(ASTPython):
 class Variable(ASTPython):
     def generate(self, force_value = False, **kwargs):
         name = self.elem.get("name")
-        yield "expr", name
+        yield "expr", id_translate(name)
         values = 0
         for value in self.elem.xpath("Value|Expression"):
             values += 1

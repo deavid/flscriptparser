@@ -507,6 +507,8 @@ def execute(options, args):
     if options.optdebug:
         print(options, args)
     if options.full:
+        execpython = options.exec_python
+        options.exec_python = False
         options.full = False
         options.toxml = True
         print("Pass 1 - Parse and write XML file . . .")
@@ -517,10 +519,12 @@ def execute(options, args):
         print("Pass 2 - Pythonize and write PY file . . .")
         execute(options,[ arg+".xml" for arg in args])
 
-        options.topython = False
-        options.exec_python = True
-        #print "Pass 3 - Test PY file load . . ."
-        #execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
+        if execpython:
+          options.exec_python = execpython 
+          print("Pass 3 - Test PY file load . . .")
+          options.topython = False
+          execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
+          
         print("Done.")
 
     elif options.exec_python:
