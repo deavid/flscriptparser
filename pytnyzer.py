@@ -21,6 +21,7 @@ def id_translate(name):
     if name == "true": name = "True"
     if name == "null": name = "None"
     if name == "unknown": name = "None"
+    if name == "undefined": name = "None"
     if name == "this": name = "self"
 
     if name == "startsWith": name = "startswith"
@@ -36,17 +37,46 @@ class ASTPythonFactory(type):
 
 class ASTPython(with_metaclass(ASTPythonFactory, object)):
     tags = []
-
+    debug_file = None
+    generate_depth = 0
+    numline = 0
     @classmethod
     def can_process_tag(self, tagname): return self.__name__ == tagname or tagname in self.tags
 
     def __init__(self, elem):
         self.elem = elem
+        if self.debug_file: 
+            self.internal_generate = self.generate
+            self.generate = self._generate
 
+    def debug(self, text):
+        if self.debug_file is None: return
+        splen = ASTPython.generate_depth
+        retlen = 0
+        if splen > self.generate_depth:
+            retlen, splen = splen - self.generate_depth, self.generate_depth
+        if retlen > 0:
+            sp = " " * (splen - 1) + "<" + "-" * retlen
+        else:
+            sp = " " * splen 
+        cname = self.__class__.__name__
+        self.debug_file.write("%04d" % ASTPython.numline + sp + cname + ": " + text + "\n");
+        
     def polish(self): return self
 
     def generate(self, **kwargs):
         yield "debug", "* not-known-seq * " + etree.tounicode(self.elem)
+    def _generate(self, **kwargs):
+        self.debug("begin-gen")
+        ASTPython.generate_depth += 1
+        self.generate_depth = ASTPython.generate_depth 
+        for dtype, data in self.internal_generate(**kwargs):
+            self.debug("%s: %r" % (dtype, data))
+            yield dtype, data
+        ASTPython.generate_depth -= 1
+        self.debug("end-gen")
+            
+        
 
 
 class Source(ASTPython):
@@ -168,7 +198,10 @@ class If(ASTPython):
         main_expr = []
         for n,arg in enumerate(self.elem.xpath("Condition/*")):
             expr = []
-            for dtype, data in parse_ast(arg).generate(isolate = False):
+            for dtype, data in parse_ast(arg).generate(isolate = False, ):
+                if dtype == "line+1":
+                    yield "debug", "Inline update inside IF condition not allowed. Unexpected behavior."
+                    dtype = "line"
                 if dtype == "expr":
                     expr.append(data)
                 else:
@@ -441,6 +474,7 @@ class With(ASTPython):
 class Variable(ASTPython):
     def generate(self, force_value = False, **kwargs):
         name = self.elem.get("name")
+        #if name.startswith("colorFun"): print(name)
         yield "expr", id_translate(name)
         values = 0
         for value in self.elem.xpath("Value|Expression"):
@@ -849,7 +883,7 @@ class OpUpdate(ASTPython):
         elif ctype == "MINUSEQUAL": yield "expr", "-="
         elif ctype == "TIMESEQUAL": yield "expr", "*="
         elif ctype == "DIVEQUAL": yield "expr", "/="
-        else: yield "expr", ctype
+        else: yield "expr", "OpUpdate."+ ctype
 
 class Compare(ASTPython):
     def generate(self, **kwargs):
@@ -865,7 +899,7 @@ class Compare(ASTPython):
         elif ctype == "IN": yield "expr", "in"
         elif ctype == "LOR": yield "expr", "or"
         elif ctype == "LAND": yield "expr", "and"
-        else: yield "expr", ctype
+        else: yield "expr", "Compare."+ctype
 
 class OpMath(ASTPython):
     def generate(self, **kwargs):
@@ -876,10 +910,11 @@ class OpMath(ASTPython):
         elif ctype == "DIVIDE": yield "expr", "/"
         elif ctype == "MOD": yield "expr", "%"
         elif ctype == "XOR": yield "expr", "^"
+        elif ctype == "OR": yield "expr", "or"
         elif ctype == "LSHIFT": yield "expr", "<<"
         elif ctype == "RSHIFT": yield "expr", ">>"
         elif ctype == "AND": yield "expr", "&"
-        else: yield "expr", ctype
+        else: yield "expr", "Math."+ctype
 
 
 class DeclarationBlock(ASTPython):
@@ -954,6 +989,7 @@ def write_python_file(fobj, ast):
     indent_text = "    "
     last_line_for_indent = {}
     numline = 0
+    ASTPython.numline = 1
     last_dtype = None
     for dtype, data in file_template(ast):
         if isinstance(data, bytes): data = data.decode("UTF-8","replace")
@@ -964,6 +1000,7 @@ def write_python_file(fobj, ast):
             try: lines_since_last_indent = numline - last_line_for_indent[len(indent)]
             except KeyError: lines_since_last_indent = 0
             if lines_since_last_indent > 4:
+                ASTPython.numline += 1                
                 fobj.write((len(indent)*indent_text) + "\n")
             last_line_for_indent[len(indent)] = numline
         if dtype == "debug":
@@ -977,6 +1014,7 @@ def write_python_file(fobj, ast):
             last_line_for_indent[len(indent)] = numline
         if dtype == "end":
             if last_dtype == "begin":
+                ASTPython.numline += 1
                 fobj.write((len(indent)*indent_text) + "pass\n")
                 last_line_for_indent[len(indent)] = numline
 
@@ -988,17 +1026,19 @@ def write_python_file(fobj, ast):
                 line = "# END-ERROR!! was %s but %s found. (%s)" % (endblock, data,repr(indent))
 
         if line is not None:
+            ASTPython.numline += 1
             fobj.write((len(indent)*indent_text) + line + "\n")
 
         if dtype == "end":
             if data.split("-")[1] in ["class","def","else","except"]:
+                ASTPython.numline += 1
                 fobj.write((len(indent)*indent_text) + "\n")
                 last_line_for_indent[len(indent)] = numline
         last_dtype = dtype
 
-def pythonize(filename, destfilename):
+def pythonize(filename, destfilename, debugname = None):
     bname = os.path.basename(filename)
-
+    ASTPython.debug_file = open(debugname, "w") if debugname else None
     parser = etree.XMLParser(remove_blank_text=True)
     try:
         ast_tree = etree.parse(open(filename), parser)

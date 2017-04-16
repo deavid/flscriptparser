@@ -573,7 +573,7 @@ def execute(options, args):
             stream = io.StringIO()
             sys.stdout = stream
             try:
-                pythonize(filename, destname)
+                pythonize(filename, destname, destname + ".debug")
             except Exception:
                 print("Error al pythonificar %r:" % filename)
                 print(traceback.format_exc())
