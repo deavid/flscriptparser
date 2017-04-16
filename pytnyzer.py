@@ -860,6 +860,8 @@ class Compare(ASTPython):
         elif ctype == "GE": yield "expr", ">="
         elif ctype == "EQ": yield "expr", "=="
         elif ctype == "NE": yield "expr", "!="
+        elif ctype == "EQQ": yield "expr", "is"
+        elif ctype == "NEQ": yield "expr", "not is"
         elif ctype == "IN": yield "expr", "in"
         elif ctype == "LOR": yield "expr", "or"
         elif ctype == "LAND": yield "expr", "and"

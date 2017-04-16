@@ -402,7 +402,7 @@ def p_parse(token):
         global endoffile
         endoffile = fromline, lexspan, token.slice[0]
         #print fromline, lexspan, token.slice[0]
-    token[0] = { "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] }
+    token[0] = { "00-toktype": str(token.slice[0]), "02-size" : lexspan,  "50-contents" :  [ { "01-type": s.type, "99-value" : s.value} for s in token.slice[1:] ] }
     numelems = len([ s for s in token.slice[1:] if s.type != 'empty' and s.value is not None ])
 
     rspan = lexspan[0]
@@ -420,8 +420,8 @@ def p_parse(token):
         rspan = max(rvalues)
     lexspan[1] = rspan
 
-    if str(token.slice[0]) == 'regexbody':
-        token[0] = { "02-size" : lexspan,  "50-contents" :  input_data[lexspan[0]:lexspan[1]+1] }
+    #if str(token.slice[0]) == 'regexbody':
+    #    token[0] = { "00-toktype": str(token.slice[0]) , "02-size" : lexspan,  "50-contents" :  input_data[lexspan[0]:lexspan[1]+1] }
 
     #if str(token.slice[0]) == 'regex':
     #    print "\r\n",str(token.slice[0]) ,":" , input_data[lexspan[0]:lexspan[1]+1]
@@ -435,6 +435,8 @@ def p_parse(token):
         tokelines[lexspan[0]] = token.lexer.lineno
     global last_lexspan
     last_lexspan = lexspan
+    
+    
 
 
 
@@ -580,6 +582,11 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
         otype = ctype_alias[otype]
     #print " " * depth , obj['02-size']
     for n,content in enumerate(obj['50-contents']):
+        if not isinstance(content,dict):
+            print("ERROR: content is not a dict!:", repr(content))
+            print(".. obj:", repr(obj))
+            raise TypeError("content is not a dict")
+            continue
         ctype = content['01-type']
         value = content['99-value']
         if ctype in ctype_alias:
@@ -593,7 +600,10 @@ def calctree(obj, depth = 0, num = [], otype = "source", alias_mode = 1):
         if type(value) is dict:
             #print "*"
             if depth < 600:
-                tree_obj = calctree(value,depth+1,num+[str(n)], ctype, alias_mode=alias_mode)
+                try:
+                    tree_obj = calctree(value,depth+1,num+[str(n)], ctype, alias_mode=alias_mode)
+                except Exception:
+                    print("ERROR: trying to calculate member %d on:" % n, repr(obj))
             else:
                 tree_obj = None
             if type(tree_obj) is dict:

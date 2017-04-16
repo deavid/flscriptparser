@@ -606,6 +606,7 @@ def execute(options, args):
                 # Si no se quiere guardar resultado, no hace falta calcular mas
                 continue
             
+            tree_data = None
             try:
                 tree_data = flscriptparse.calctree(prog, alias_mode = 0)
             except Exception:
