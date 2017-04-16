@@ -165,7 +165,7 @@ t_ICONST = r'\d+([uU]|[lL]|[uU][lL]|[lL][uU])?'
 t_FCONST = r'((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
 
 # String literal
-t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
+t_SCONST = r'\"([^\"\\\n]|(\\.)|\\\n)*?\"'
 
 # Character constant 'c' or L'c'
 t_CCONST = r'\'([^\'\\\n]|(\\.)|\\\n)*?\''
