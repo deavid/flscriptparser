@@ -490,6 +490,10 @@ def parseArgs(argv):
                     action="store_true", dest="full", default=False,
                     help="write xml file from qs")
 
+    parser.add_option("--cache",
+                    action="store_true", dest="cache", default=False,
+                    help="If dest file exists, don't regenerate it")
+
     (options, args) = parser.parse_args(argv)
     return (options, args)
 
@@ -558,7 +562,9 @@ def execute(options, args):
     elif options.topython:
         from .pytnyzer import pythonize
         import io
-        
+        if options.cache:
+            args = [ x for x in args if not os.path.exists((x+".py").replace(".qs.xml.py",".py"))
+                        or os.path.getmtime(x) > os.path.getctime((x+".py").replace(".qs.xml.py",".py")) ]
         for filename in args:
             bname = os.path.basename(filename)
             if options.storepath:
@@ -584,6 +590,9 @@ def execute(options, args):
                 
 
     else:
+        if options.cache:
+            args = [ x for x in args if not os.path.exists(x+".xml") 
+                        or os.path.getmtime(x) > os.path.getctime(x+".xml")]
         nfs = len(args)
         for nf, filename in enumerate(args):
             bname = os.path.basename(filename)
