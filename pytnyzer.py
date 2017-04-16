@@ -1005,7 +1005,7 @@ def write_python_file(fobj, ast):
             last_line_for_indent[len(indent)] = numline
         if dtype == "debug":
             line = "# DEBUG:: " + data
-            print(numline, line)
+            #print(numline, line)
         if dtype == "expr": line = "# EXPR??:: " + data
         if dtype == "line+1": line = "# LINE+1??:: " + data
         if dtype == "begin":
