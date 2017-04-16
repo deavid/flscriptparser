@@ -565,7 +565,9 @@ def execute(options, args):
         if options.cache:
             args = [ x for x in args if not os.path.exists((x+".py").replace(".qs.xml.py",".py"))
                         or os.path.getmtime(x) > os.path.getctime((x+".py").replace(".qs.xml.py",".py")) ]
-        for filename in args:
+            
+        nfs = len(args)
+        for nf, filename in enumerate(args):
             bname = os.path.basename(filename)
             if options.storepath:
                 destname = os.path.join(options.storepath,bname+".py")
@@ -575,6 +577,8 @@ def execute(options, args):
             if not os.path.exists(filename):
                 print("Fichero %r no encontrado" % filename)
                 continue
+            sys.stdout.write("Pythonizing File: %-35s . . . .        (%.1f%%)        \r" % (bname,100.0*(nf+1.0)/nfs))
+            sys.stdout.flush();
             old_stderr = sys.stdout
             stream = io.StringIO()
             sys.stdout = stream

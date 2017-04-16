@@ -836,6 +836,7 @@ class Constant(ASTPython):
     def generate(self, **kwargs):
         ctype = self.elem.get("type")
         value = self.elem.get("value")
+        self.debug("ctype: %r -> %r" % (ctype,value));
         if ctype is None or value is None:
             for child in self.elem:
                 if child.tag == "list_constant":
@@ -868,6 +869,10 @@ class Constant(ASTPython):
                 yield "expr", "u'%s'" % value
             else:
                 yield "expr", "u\"%s\"" % value
+        elif ctype == "Number":
+            value = value.lstrip("0")
+            if value == "": value = "0"
+            yield "expr", value
         else: yield "expr", value
 
 class Identifier(ASTPython):
@@ -883,6 +888,7 @@ class OpUpdate(ASTPython):
         elif ctype == "MINUSEQUAL": yield "expr", "-="
         elif ctype == "TIMESEQUAL": yield "expr", "*="
         elif ctype == "DIVEQUAL": yield "expr", "/="
+        elif ctype == "MODEQUAL": yield "expr", "%="
         else: yield "expr", "OpUpdate."+ ctype
 
 class Compare(ASTPython):
