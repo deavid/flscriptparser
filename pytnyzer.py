@@ -884,7 +884,7 @@ class DeclarationBlock(ASTPython):
     def generate(self, **kwargs):
         mode = self.elem.get("mode")
         is_constructor = self.elem.get("constructor")
-        if mode == "CONST": yield "debug", "Const Declaration:"
+        #if mode == "CONST": yield "debug", "Const Declaration:"
         for var in self.elem:
             expr = []
             for dtype, data in parse_ast(var).generate(force_value=True):

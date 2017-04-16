@@ -446,6 +446,9 @@ class Module(object):
             # fp, pathname, description = imp.find_module(self.name,[self.path])
             self.module = imp.load_module(name, fp, pathname, description)
             result = True
+        except FileNotFoundError:
+            print("Fichero %r no encontrado" % self.name)
+            result = False
         except Exception as e:
             print(traceback.format_exc())
             result = False
@@ -512,18 +515,30 @@ def execute(options, args):
         options.full = False
         options.toxml = True
         print("Pass 1 - Parse and write XML file . . .")
-        execute(options,args)
+        try:
+            execute(options,args)
+        except Exception:
+            print("Error parseando:");
+            print(traceback.format_exc())
 
         options.toxml = False
         options.topython = True
         print("Pass 2 - Pythonize and write PY file . . .")
-        execute(options,[ arg+".xml" for arg in args])
+        try:
+          execute(options,[ arg+".xml" for arg in args])
+        except Exception:
+            print("Error convirtiendo:");
+            print(traceback.format_exc())
 
         if execpython:
           options.exec_python = execpython 
           print("Pass 3 - Test PY file load . . .")
           options.topython = False
-          execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
+          try:
+            execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
+          except Exception:
+              print("Error al ejecutar Python:");
+              print(traceback.format_exc())
           
         print("Done.")
 
@@ -532,15 +547,18 @@ def execute(options, args):
         for filename in args:
             realpath = os.path.realpath(filename)
             path, name = os.path.split(realpath)
+            if not os.path.exists(realpath):
+                print("Fichero no existe: %s" % name)
+                continue
+              
             mod = Module(name, path)
-            if mod.loadModule():
-                print(mod.module)
-                print(mod.module.form)
-            else:
+            if not mod.loadModule():
                 print("Error cargando modulo %s" % name)
 
     elif options.topython:
         from .pytnyzer import pythonize
+        import io
+        
         for filename in args:
             bname = os.path.basename(filename)
             if options.storepath:
@@ -548,7 +566,22 @@ def execute(options, args):
             else:
                 destname = filename+".py"
             destname = destname.replace(".qs.xml.py",".py")
-            pythonize(filename, destname)
+            if not os.path.exists(filename):
+                print("Fichero %r no encontrado" % filename)
+                continue
+            old_stderr = sys.stdout
+            stream = io.StringIO()
+            sys.stdout = stream
+            try:
+                pythonize(filename, destname)
+            except Exception:
+                print("Error al pythonificar %r:" % filename)
+                print(traceback.format_exc())
+            sys.stdout = old_stderr 
+            text = stream.getvalue()
+            if len(text) > 2:
+                print("%s: " % bname + ("\n%s: " % bname).join(text.splitlines()))
+                
 
     else:
         nfs = len(args)
@@ -572,8 +605,13 @@ def execute(options, args):
             if options.toxml == False:
                 # Si no se quiere guardar resultado, no hace falta calcular mas
                 continue
-
-            tree_data = flscriptparse.calctree(prog, alias_mode = 0)
+            
+            try:
+                tree_data = flscriptparse.calctree(prog, alias_mode = 0)
+            except Exception:
+                print("Error al convertir a XML %r:" % bname)
+                print("\n".join(traceback.format_exc().splitlines()[-7:]))
+            
             if not tree_data:
                 print("No se pudo parsear %-35s          \n" % (repr(filename)))
                 continue
