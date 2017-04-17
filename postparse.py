@@ -187,6 +187,12 @@ class Function(ListNamedObject):
     def add_vartype(self, argn, subelem):
         self.xml.set("returns", str(subelem.xmlname))
 
+class FunctionAnon(ListObject):
+    tags = ["funcdeclaration_anon"]
+
+class FunctionAnonExec(ListObject):
+    tags = ["funcdeclaration_anon_exec"]
+
 class Variable(NamedObject):
     tags = ["vardecl"]
     callback_subelem = NamedObject.callback_subelem.copy()
