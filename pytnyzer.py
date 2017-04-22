@@ -121,20 +121,27 @@ class Class(ASTPython):
 
 class Function(ASTPython):
     def generate(self, **kwargs):
-        name = id_translate(self.elem.get("name"))
+        _name = self.elem.get("name")
+        if _name:
+            name = id_translate(_name)
+        else:
+            # Anonima:
+            name = "_"
+        withoutself = self.elem.get("withoutself")
+        
         returns = self.elem.get("returns",None)
         parent = self.elem.getparent()
         grandparent = None
         if parent is not None: grandparent = parent.getparent()
         arguments = []
-
-        if grandparent is not None:
-            if grandparent.tag == "Class":
+        if not withoutself:
+            if grandparent is not None:
+                if grandparent.tag == "Class":
+                    arguments.append("self")
+                    if name == grandparent.get("name"):
+                        name = "__init__"
+            else:
                 arguments.append("self")
-                if name == grandparent.get("name"):
-                    name = "__init__"
-        else:
-           arguments.append("self")
         for n,arg in enumerate(self.elem.xpath("Arguments/*")):
             expr = []
             for dtype, data in parse_ast(arg).generate():
@@ -158,6 +165,9 @@ class Function(ASTPython):
         for source in self.elem.xpath("Source"):
             for obj in parse_ast(source).generate(): yield obj
         yield "end", "block-def-%s" % (name)
+
+class FunctionAnon(Function):
+    pass
 
 class FunctionCall(ASTPython):
     def generate(self, **kwargs):
@@ -990,14 +1000,25 @@ def file_template(ast):
     yield "line", ""
     yield "line", "form = None"
 
-def write_python_file(fobj, ast):
+
+
+def string_template(ast):
+    sourceclasses = etree.Element("Source")
+    for child in ast:
+        child.set("withoutself","1")
+        sourceclasses.append(child)
+
+    for dtype, data in parse_ast(sourceclasses).generate():
+        yield dtype, data
+
+def write_python_file(fobj, ast, tpl=file_template):
     indent = []
     indent_text = "    "
     last_line_for_indent = {}
     numline = 0
     ASTPython.numline = 1
     last_dtype = None
-    for dtype, data in file_template(ast):
+    for dtype, data in tpl(ast):
         if isinstance(data, bytes): data = data.decode("UTF-8","replace")
         line = None
         if dtype == "line":
@@ -1052,12 +1073,16 @@ def pythonize(filename, destfilename, debugname = None):
         print("filename:",filename)
         raise
     ast = ast_tree.getroot()
-
+    tpl = string_template
+    for cls in ast.xpath("Class"):
+        tpl = file_template
+        break
 
     f1 = open(destfilename,"w")
-    write_python_file(f1,ast)
+    write_python_file(f1,ast,tpl)
     f1.close()
-
+    
+    
 def main():
     parser = OptionParser()
     parser.add_option("-q", "--quiet",

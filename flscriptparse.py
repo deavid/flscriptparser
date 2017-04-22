@@ -123,6 +123,8 @@ def p_parse(token):
                     | vardeclaration
                     | classdeclaration
                     | funcdeclaration
+                    | funcdeclaration_anon
+                    | funcdeclaration_anon_exec
 
     source  : source_element
     source  : source source_element
