@@ -301,7 +301,6 @@ class Condition(ListObject):
 
 class Else(ListObject):
     tags = ["optelse"]
-    adopt_childs_tags = ['statement_block']
     def polish(self):
         if len(self.subelems) == 0:
             self.astname = "empty"
