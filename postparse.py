@@ -544,7 +544,7 @@ def execute(options, args):
           print("Pass 3 - Test PY file load . . .")
           options.topython = False
           try:
-            execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".py") for arg in args])
+            execute(options,[ (arg+".xml.py").replace(".qs.xml.py",".qs.py") for arg in args])
           except Exception:
               print("Error al ejecutar Python:");
               print(traceback.format_exc())
@@ -568,8 +568,8 @@ def execute(options, args):
         from .pytnyzer import pythonize
         import io
         if options.cache:
-            args = [ x for x in args if not os.path.exists((x+".py").replace(".qs.xml.py",".py"))
-                        or os.path.getmtime(x) > os.path.getctime((x+".py").replace(".qs.xml.py",".py")) ]
+            args = [ x for x in args if not os.path.exists((x+".py").replace(".qs.xml.py",".qs.py"))
+                        or os.path.getmtime(x) > os.path.getctime((x+".py").replace(".qs.xml.py",".qs.py")) ]
             
         nfs = len(args)
         for nf, filename in enumerate(args):
@@ -578,7 +578,7 @@ def execute(options, args):
                 destname = os.path.join(options.storepath,bname+".py")
             else:
                 destname = filename+".py"
-            destname = destname.replace(".qs.xml.py",".py")
+            destname = destname.replace(".qs.xml.py",".qs.py")
             if not os.path.exists(filename):
                 print("Fichero %r no encontrado" % filename)
                 continue
